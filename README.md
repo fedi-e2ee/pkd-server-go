@@ -36,7 +36,7 @@ Our design decisions are guided by two main principles: **Build for People** and
 
 * **Legacy Compatibility:** We will not compromise on security or simplicity for the sake of compatibility with
   existing, but flawed, standards.
-* *Manual Key Verification:** While we provide a strong foundation for trust, advanced key verification mechanisms
+* **Manual Key Verification:** While we provide a strong foundation for trust, advanced key verification mechanisms
   (e.g., comparing key fingerprints) are out of scope for this project but can be built on top of it.
 
 ## License
