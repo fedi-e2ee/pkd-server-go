@@ -29,6 +29,7 @@ var forbiddenTlds = []string{
 // 5. Checks against a list of forbidden top-level domains.
 //
 // It cannot enforce an allow-list at this level.
+// codeql[go/ssrf-sanitizer]
 func ValidateURL(u string, allowPrivateIPs bool) (*url.URL, error) {
 	// 1. Parse the URL.
 	parsedURL, err := url.Parse(u)
