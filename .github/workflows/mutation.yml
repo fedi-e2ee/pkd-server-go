@@ -1,0 +1,19 @@
+name: mutation testing
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  mutation-testing:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+      - name: Install dependencies
+        run: go mod tidy
+      - name: Gremlins
+        uses: go-gremlins/gremlins-action@v1

@@ -20,24 +20,10 @@ You can read more about the project's origins and design philosophy on Soatok's 
 * [Towards Federated Key Transparency](https://soatok.blog/2024/06/06/towards-federated-key-transparency/)
 * [Key Transparency and the Right to be Forgotten](https://soatok.blog/2024/11/21/key-transparency-and-the-right-to-be-forgotten/)
 
-## Project Goals and Non-Goals
+## Documentation
 
-Our design decisions are guided by two main principles: **Build for People** and **Security Over Legacy**.
-
-### Goals
-
-* **Enable Secure Communication:** The primary goal is to enable more people to communicate securely with each other.
-* **User-Friendly Security:** We aim to minimize the knowledge and effort required for users to use the system securely.
-* **Privacy:** We value user privacy and only store the minimum amount of information necessary.
-  We also provide a mechanism for data deletion.
-* **Transparency:** We believe in clearly communicating errors and security incidents to users.
-
-### Non-Goals
-
-* **Legacy Compatibility:** We will not compromise on security or simplicity for the sake of compatibility with
-  existing, but flawed, standards.
-* **Manual Key Verification:** While we provide a strong foundation for trust, advanced key verification mechanisms
-  (e.g., comparing key fingerprints) are out of scope for this project but can be built on top of it.
+For detailed information on how to deploy and configure the server, please see the
+[online documentation](./docs/README.md).
 
 ## License
 
