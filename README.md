@@ -1,5 +1,12 @@
 # Fediverse Public Key Directory Server Reference Implementation
 
+[![Unit Tests](https://github.com/fedi-e2ee/pkd-server-go/actions/workflows/ci.yml/badge.svg)](https://github.com/fedi-e2ee/pkd-server-go/actions/workflows/ci.yml)
+[![Lints](https://github.com/fedi-e2ee/pkd-server-go/actions/workflows/golangci-lint.yml/badge.svg)](https://github.com/fedi-e2ee/pkd-server-go/actions/workflows/golangci-lint.yml)
+[![Mutation Testing](https://github.com/fedi-e2ee/pkd-server-go/actions/workflows/mutation.yml/badge.svg)](https://github.com/fedi-e2ee/pkd-server-go/actions/workflows/mutation.yml)
+[![Fuzz Testing](https://github.com/fedi-e2ee/pkd-server-go/actions/workflows/fuzzing.yml/badge.svg)](https://github.com/fedi-e2ee/pkd-server-go/actions/workflows/fuzzing.yml)
+[![CodeQL](https://github.com/fedi-e2ee/pkd-server-go/actions/workflows/codeql.yml/badge.svg)](https://github.com/fedi-e2ee/pkd-server-go/actions/workflows/codeql.yml)
+[![Semgrep](https://github.com/fedi-e2ee/pkd-server-go/actions/workflows/semgrep.yml/badge.svg)](https://github.com/fedi-e2ee/pkd-server-go/actions/workflows/semgrep.yml)
+
 This is the reference implementation for the server-side component of the
 [Public Key Directory specification](https://github.com/fedi-e2ee/public-key-directory-specification),
 written in Go.
