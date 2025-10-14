@@ -15,6 +15,7 @@ import (
 	"github.com/fedi-e2ee/pkd-server-go/internal/crypto"
 	"github.com/fedi-e2ee/pkd-server-go/internal/domain"
 	"github.com/fedi-e2ee/pkd-server-go/internal/protocol"
+	"github.com/fedi-e2ee/pkd-server-go/internal/util"
 )
 
 // TriggerCheckpointRequest is the request body for the admin endpoint that
@@ -91,6 +92,13 @@ func (s *Server) handleTriggerCheckpoint(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Prevent SSRF by validating the URL of the directory
+	validatedURL, err := util.ValidateURL(req.ToDirectory, s.config.Test.AllowPrivateIPs)
+	if err != nil {
+		s.respondWithError(w, http.StatusBadRequest, "Invalid to-directory URL: "+err.Error())
+		return
+	}
+
 	// 1. Get the latest Merkle root from our own server's transparency log.
 	latestRoot, err := s.repo.GetLatestMerkleRoot(ctx)
 	if err != nil {
@@ -157,7 +165,7 @@ func (s *Server) handleTriggerCheckpoint(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	resp, err := http.Post(req.ToDirectory+"/protocol", "application/json", bytes.NewBuffer(finalMsgBytes))
+	resp, err := http.Post(validatedURL.String()+"/protocol", "application/json", bytes.NewBuffer(finalMsgBytes))
 	if err != nil {
 		s.respondWithError(w, http.StatusInternalServerError, "Failed to send checkpoint to peer: "+err.Error())
 		return

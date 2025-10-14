@@ -78,7 +78,7 @@ func (s *Server) handleProtocolMessage(w http.ResponseWriter, r *http.Request) {
 				signingString.WriteString(value)
 			}
 
-			pubKey, err := fetchActorPublicKey(keyID)
+			pubKey, err := fetchActorPublicKey(keyID, s.config.Test.AllowPrivateIPs)
 			if err != nil {
 				s.logger.Printf("Failed to fetch public key for signature verification: %v", err)
 				s.respondWithError(w, http.StatusForbidden, "Failed to fetch public key")

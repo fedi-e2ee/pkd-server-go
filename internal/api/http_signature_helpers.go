@@ -13,13 +13,14 @@ import (
 	"time"
 
 	pkd_crypto "github.com/fedi-e2ee/pkd-server-go/internal/crypto"
+	"github.com/fedi-e2ee/pkd-server-go/internal/util"
 )
 
 // actorKeyCache stores actor public keys to avoid re-fetching them on every request.
 var actorKeyCache = &sync.Map{}
 
 // fetchActorPublicKey fetches and caches an actor's public key from their ID URL.
-func fetchActorPublicKey(keyID string) (crypto.PublicKey, error) {
+func fetchActorPublicKey(keyID string, allowPrivateIPs bool) (crypto.PublicKey, error) {
 	// 1. Check the cache first.
 	if key, ok := actorKeyCache.Load(keyID); ok {
 		if pubKey, ok := key.(crypto.PublicKey); ok {
@@ -28,10 +29,15 @@ func fetchActorPublicKey(keyID string) (crypto.PublicKey, error) {
 	}
 
 	// 2. If not in cache, fetch the actor document.
+	validatedURL, err := util.ValidateURL(keyID, allowPrivateIPs)
+	if err != nil {
+		return nil, fmt.Errorf("invalid keyID URL: %w", err)
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, "GET", keyID, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", validatedURL.String(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request for keyId '%s': %w", keyID, err)
 	}
