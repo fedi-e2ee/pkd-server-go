@@ -19,6 +19,12 @@ type Config struct {
 	SigSum           SigSum              `mapstructure:"sigsum"`
 	Peers            map[string]Peer     `mapstructure:"peers"`
 	CheckpointPolicy CheckpointPolicy    `mapstructure:"checkpoint_policy"`
+	Test             Test                `mapstructure:"test"`
+}
+
+// Test holds configuration options for testing purposes.
+type Test struct {
+	AllowPrivateIPs bool `mapstructure:"allow_private_ips"`
 }
 
 // CheckpointPolicy holds the configuration for automated checkpointing.
