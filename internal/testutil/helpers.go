@@ -1,4 +1,3 @@
-// Package testutil provides utilities to make unit testing easier.
 package testutil
 
 import (
@@ -180,6 +179,9 @@ func NewTestInstance(t *testing.T) (*TestInstance, error) {
 			},
 		},
 		Peers: make(map[string]config.Peer),
+		Test: config.Test{
+			AllowPrivateIPs: true,
+		},
 	}
 
 	service := domain.NewPKDService(repo, nil)
