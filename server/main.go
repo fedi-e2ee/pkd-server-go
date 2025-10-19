@@ -33,10 +33,11 @@ func main() {
 
 	// Initialize the database repository
 	var repo db.Repository
+	logger.Printf("Using database driver: %s, DSN: %s", cfg.Database.Driver, cfg.Database.DSN)
 	switch cfg.Database.Driver {
 	case "sqlite":
 		repo, err = db.NewSQLiteRepository(ctx, cfg.Database.DSN)
-	case "postgres", "": // Default to postgres
+	case "postgres":
 		repo, err = db.NewPostgresRepository(ctx, cfg.Database.DSN)
 	default:
 		logger.Fatalf("Unsupported database driver: %s", cfg.Database.Driver)
