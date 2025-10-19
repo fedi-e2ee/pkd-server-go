@@ -33,7 +33,15 @@ var actorCryptoShredCmd = &cobra.Command{
 			return err
 		}
 
-		repo, err := db.NewPostgresRepository(cmd.Context(), cfg.Database.DSN)
+		var repo db.Repository
+		switch cfg.Database.Driver {
+		case "sqlite":
+			repo, err = db.NewSQLiteRepository(cmd.Context(), cfg.Database.DSN)
+		case "postgres", "":
+			repo, err = db.NewPostgresRepository(cmd.Context(), cfg.Database.DSN)
+		default:
+			return fmt.Errorf("unsupported database driver: %s", cfg.Database.Driver)
+		}
 		if err != nil {
 			return err
 		}

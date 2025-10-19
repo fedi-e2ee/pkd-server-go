@@ -113,6 +113,10 @@ type MockRepository struct {
 	mock.Mock
 }
 
+func (m *MockRepository) DB() *sqlx.DB {
+	return nil
+}
+
 func (m *MockRepository) BeginTx(ctx context.Context) (domain.TransactionalRepository, error) {
 	args := m.Called(ctx)
 	if args.Get(0) == nil {
