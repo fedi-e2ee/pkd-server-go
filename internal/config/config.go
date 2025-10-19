@@ -81,7 +81,8 @@ func New() *Config {
 			Port: 8080,
 		},
 		Database: Database{
-			DSN: "postgresql://user:password@localhost:5432/pkd?sslmode=disable",
+			Driver: "postgres",
+			DSN:    "postgresql://user:password@localhost:5432/pkd?sslmode=disable",
 		},
 		SigSum: SigSum{
 			URL:       "http://localhost:8081",
@@ -132,6 +133,17 @@ func LoadAndValidate(path string) (*Config, error) {
 	cfg, err := Load(path)
 	if err != nil {
 		return nil, err
+	}
+
+	// If a key file is specified, load keys from it.
+	if cfg.Server.KeyFile.Path != "" {
+		keyViper := viper.New()
+		keyViper.SetConfigFile(cfg.Server.KeyFile.Path)
+		if err := keyViper.ReadInConfig(); err != nil {
+			return nil, fmt.Errorf("failed to read key file: %w", err)
+		}
+		cfg.Server.PrivateKey = keyViper.GetString("server.private_key")
+		cfg.Server.HPKESecretKey = keyViper.GetString("server.hpke_secret_key")
 	}
 
 	// Decode the ed25519 private key

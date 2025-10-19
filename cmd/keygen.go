@@ -15,11 +15,17 @@ import (
 var (
 	configFile string
 	force      bool
+	driver     string
+	dsn        string
+	keyFile    string
 )
 
 func init() {
 	generateKeysCmd.Flags().StringVar(&configFile, "config", "config.yaml", "path to the configuration file")
 	generateKeysCmd.Flags().BoolVar(&force, "force", false, "overwrite existing keys")
+	generateKeysCmd.Flags().StringVar(&driver, "driver", "sqlite", "database driver to use (sqlite or postgres)")
+	generateKeysCmd.Flags().StringVar(&dsn, "dsn", "", "database dsn to use (for postgres)")
+	generateKeysCmd.Flags().StringVar(&keyFile, "key-file", "keys.json", "path to the key file")
 	rootCmd.AddCommand(generateKeysCmd)
 }
 
@@ -56,9 +62,23 @@ var generateKeysCmd = &cobra.Command{
 			return
 		}
 
+		// Create a separate viper instance for the key file
+		keyViper := viper.New()
+		keyViper.Set("server.private_key", crypto.EncodePrivateKey(privKey))
+		keyViper.Set("server.hpke_secret_key", base64.RawURLEncoding.EncodeToString(hpkeSecretKey))
+		if err := keyViper.WriteConfigAs(keyFile); err != nil {
+			fmt.Fprintf(os.Stderr, "Error writing key file: %v\n", err)
+			os.Exit(1)
+		}
+
 		// Set the new keys in viper
-		viper.Set("server.private_key", crypto.EncodePrivateKey(privKey))
-		viper.Set("server.hpke_secret_key", base64.RawURLEncoding.EncodeToString(hpkeSecretKey))
+		viper.Set("server.key_file.path", keyFile)
+		viper.Set("database.driver", driver)
+		if driver == "sqlite" {
+			viper.Set("database.dsn", "pkd.db")
+		} else {
+			viper.Set("database.dsn", dsn)
+		}
 
 		// Write the config file
 		if err := viper.WriteConfig(); err != nil {
