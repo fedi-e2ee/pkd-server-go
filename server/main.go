@@ -27,21 +27,25 @@ func main() {
 	cfg, err := config.LoadAndValidate("")
 	if err != nil {
 		logger.Fatalf("Failed to load configuration: %v", err)
+		os.Exit(1)
 	}
 	ctx := context.Background()
 	repo, err := db.NewPostgresRepository(ctx, cfg.Database.DSN)
 	if err != nil {
 		logger.Fatalf("Failed to connect to the database: %v", err)
+		os.Exit(1)
 	}
 	defer func() {
 		if err := repo.Close(); err != nil {
 			logger.Printf("Error closing repository: %v", err)
+			os.Exit(1)
 		}
 	}()
 
 	// Ping the database to verify the connection
 	if err := repo.Ping(ctx); err != nil {
 		logger.Fatalf("Failed to ping the database: %v", err)
+		os.Exit(1)
 	}
 	logger.Println("Successfully connected to the database.")
 
@@ -82,5 +86,6 @@ func main() {
 	logger.Printf("Starting server on %s", serverAddr)
 	if err := http.ListenAndServe(serverAddr, router); err != nil {
 		logger.Fatalf("Server failed to start: %v", err)
+		os.Exit(1)
 	}
 }
