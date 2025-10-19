@@ -1,4 +1,4 @@
-name: mutation testing
+name: Mutation
 on:
   push:
     branches: [ main ]

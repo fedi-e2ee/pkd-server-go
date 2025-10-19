@@ -1,4 +1,4 @@
-name: Startup and Config Verification
+name: Startup
 
 on:
   push:
