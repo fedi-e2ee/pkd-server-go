@@ -1,4 +1,4 @@
-name: Semgrep Scan
+name: Semgrep
 
 on:
   push:
