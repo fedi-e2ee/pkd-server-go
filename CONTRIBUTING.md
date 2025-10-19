@@ -30,18 +30,25 @@ We welcome pull requests for bug fixes and new features. Before submitting a pul
 
 To set up a local development environment, you will need to have Go installed on your system.
 
-1.  **Clone the repository:**
+1. **Clone the repository:**
+   
+   ```sh
+   git clone https://github.com/fedi-e2ee/pkd-server-go
+   cd pkd-server
+   ```
 
-    ```sh
-    git clone https://github.com/fedi-e2ee/pkd-server-go
-    cd pkd-server
-    ```
+2. **Install dependencies:**
+  
+   ```sh
+   go mod tidy
+   ```
 
-2.  **Install dependencies:**
+To run the local development server, you can run these commands from the project root:
 
-    ```sh
-    go mod tidy
-    ```
+```terminal
+go build -o pkd-server ./server
+./pkd-server
+```
 
 ## Running Tests
 

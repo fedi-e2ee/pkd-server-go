@@ -116,6 +116,22 @@ peers:
     public_key: "peer-public-key"
 ```
 
+### Running the Server
+
+Once you have configured the server, you can run it using the following command:
+
+```shell
+go build -o pkd-server ./server
+./pkd-server
+```
+
+By default, the server will look for a `config.yaml` file in the current directory or in `/etc/pkd-server-go`.
+You can also specify a different configuration file using the `--config` flag:
+
+```shell
+./pkd-server --config /path/to/your/config.yaml
+```
+
 ### Provisioning Keys
 
 The server needs two asymmetric keypairs.
