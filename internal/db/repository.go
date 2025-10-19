@@ -5,10 +5,12 @@ import (
 
 	"github.com/fedi-e2ee/pkd-server-go/internal/domain"
 	"github.com/fedi-e2ee/pkd-server-go/internal/protocol"
+	"github.com/jmoiron/sqlx"
 )
 
 // Repository defines the interface for non-transactional database operations.
 type Repository interface {
+	DB() *sqlx.DB
 	BeginTx(ctx context.Context) (domain.TransactionalRepository, error)
 
 	// Actor operations

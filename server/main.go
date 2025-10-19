@@ -30,7 +30,17 @@ func main() {
 		os.Exit(1)
 	}
 	ctx := context.Background()
-	repo, err := db.NewPostgresRepository(ctx, cfg.Database.DSN)
+
+	// Initialize the database repository
+	var repo db.Repository
+	switch cfg.Database.Driver {
+	case "sqlite":
+		repo, err = db.NewSQLiteRepository(ctx, cfg.Database.DSN)
+	case "postgres", "": // Default to postgres
+		repo, err = db.NewPostgresRepository(ctx, cfg.Database.DSN)
+	default:
+		logger.Fatalf("Unsupported database driver: %s", cfg.Database.Driver)
+	}
 	if err != nil {
 		logger.Fatalf("Failed to connect to the database: %v", err)
 		os.Exit(1)
@@ -45,7 +55,6 @@ func main() {
 	// Ping the database to verify the connection
 	if err := repo.Ping(ctx); err != nil {
 		logger.Fatalf("Failed to ping the database: %v", err)
-		os.Exit(1)
 	}
 	logger.Println("Successfully connected to the database.")
 

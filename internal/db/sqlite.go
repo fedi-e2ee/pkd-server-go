@@ -10,7 +10,8 @@ import (
 	"github.com/fedi-e2ee/pkd-server-go/internal/domain"
 	"github.com/fedi-e2ee/pkd-server-go/internal/protocol"
 	"github.com/jmoiron/sqlx"
-	_ "github.com/mattn/go-sqlite3"
+
+	_ "github.com/mattn/go-sqlite3" // sqlx needs the stdlib driver
 )
 
 // SQLiteRepository is a SQLite implementation of the Repository and Transactioner interfaces.
@@ -18,27 +19,29 @@ type SQLiteRepository struct {
 	db *sqlx.DB
 }
 
-// NewSQLiteRepository creates a new SQLiteRepository.
+// DB returns the underlying sqlx.DB object.
+func (r *SQLiteRepository) DB() *sqlx.DB {
+	return r.db
+}
+
+// NewSQLiteRepository creates a new SQLiteRepository and connects to the database.
 // It connects to an in-memory database if dsn is empty, otherwise uses the provided DSN.
 func NewSQLiteRepository(ctx context.Context, dsn string) (*SQLiteRepository, error) {
 	if dsn == "" {
-		dsn = "file::memory:?cache=shared&_foreign_keys=on"
+		dsn = ":memory:"
 	}
 	db, err := sqlx.ConnectContext(ctx, "sqlite3", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to sqlite: %w", err)
 	}
-	// When using a file-based database, we don't want to limit connections.
-	// In-memory still needs this to ensure the same connection is shared.
-	if dsn == "file::memory:?cache=shared&_foreign_keys=on" {
-		db.SetMaxOpenConns(1)
-	}
-	return &SQLiteRepository{db: db}, nil
-}
 
-// DB returns the underlying sqlx.DB object. This is useful for running migrations in tests.
-func (r *SQLiteRepository) DB() *sqlx.DB {
-	return r.db
+	// Enable foreign key support
+	_, err = db.ExecContext(ctx, "PRAGMA foreign_keys = ON;")
+	if err != nil {
+		return nil, fmt.Errorf("failed to enable foreign keys: %w", err)
+	}
+
+	return &SQLiteRepository{db: db}, nil
 }
 
 // BeginTx starts a new database transaction.
@@ -67,7 +70,7 @@ func (r *SQLiteRepository) FindActorByActorID(ctx context.Context, actorID strin
 	err := r.db.GetContext(ctx, &actor, query, actorID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
+			return nil, nil // Not found is not an error
 		}
 		return nil, fmt.Errorf("failed to find actor by actor_id %s: %w", actorID, err)
 	}
@@ -81,7 +84,7 @@ func (r *SQLiteRepository) IsFireproof(ctx context.Context, actorID string) (boo
 	err := r.db.GetContext(ctx, &isFireproof, query, actorID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return false, nil
+			return false, nil // An actor that doesn't exist is not fireproof.
 		}
 		return false, fmt.Errorf("failed to check fireproof status for actor %s: %w", actorID, err)
 	}
@@ -141,7 +144,7 @@ func (r *SQLiteRepository) FindKeyByKeyID(ctx context.Context, keyID string) (*d
 	err := r.db.GetContext(ctx, &key, query, keyID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
+			return nil, nil // Not found
 		}
 		return nil, fmt.Errorf("failed to find key by key_id %s: %w", keyID, err)
 	}
@@ -170,7 +173,7 @@ func (r *SQLiteRepository) FindAuxDataByAuxID(ctx context.Context, auxID string)
 	err := r.db.GetContext(ctx, &aux, query, auxID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
+			return nil, nil // Not found
 		}
 		return nil, fmt.Errorf("failed to find auxiliary data by aux_id %s: %w", auxID, err)
 	}
@@ -194,7 +197,10 @@ func (r *SQLiteRepository) StoreMessage(ctx context.Context, hash string, rawMes
 	if err != nil {
 		return fmt.Errorf("failed to marshal decrypted message to JSON: %w", err)
 	}
-	query := `INSERT INTO message_logs (message_hash, encrypted_message, decrypted_message) VALUES (?, ?, ?)`
+
+	query := `
+		INSERT INTO message_logs (message_hash, encrypted_message, decrypted_message, created_at)
+		VALUES (?, ?, ?, CURRENT_TIMESTAMP)`
 	_, err = r.db.ExecContext(ctx, query, hash, rawMessage, decryptedJSON)
 	if err != nil {
 		return fmt.Errorf("failed to insert message log: %w", err)
@@ -205,11 +211,10 @@ func (r *SQLiteRepository) StoreMessage(ctx context.Context, hash string, rawMes
 // StoreTOTPSecret stores or updates an encrypted TOTP secret for an instance.
 func (r *SQLiteRepository) StoreTOTPSecret(ctx context.Context, instance string, encryptedSecret []byte) error {
 	query := `
-		INSERT INTO totp_secrets (instance, encrypted_secret, updated_at)
-		VALUES (?, ?, CURRENT_TIMESTAMP)
-		ON CONFLICT(instance) DO UPDATE SET
-			encrypted_secret = excluded.encrypted_secret,
-			updated_at = CURRENT_TIMESTAMP`
+		INSERT INTO totp_secrets (instance, encrypted_secret, created_at, updated_at)
+		VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+		ON CONFLICT (instance) DO UPDATE
+		SET encrypted_secret = excluded.encrypted_secret, updated_at = CURRENT_TIMESTAMP`
 	_, err := r.db.ExecContext(ctx, query, instance, encryptedSecret)
 	if err != nil {
 		return fmt.Errorf("failed to store TOTP secret for instance %s: %w", instance, err)
@@ -224,7 +229,7 @@ func (r *SQLiteRepository) GetTOTPSecret(ctx context.Context, instance string) (
 	err := r.db.GetContext(ctx, &secret, query, instance)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
+			return nil, nil // Not found
 		}
 		return nil, fmt.Errorf("failed to get TOTP secret for instance %s: %w", instance, err)
 	}
@@ -265,38 +270,26 @@ func (tx *SQLiteTx) Rollback() error {
 	return tx.tx.Rollback()
 }
 
-func (tx *SQLiteTx) findActorByID(ctx context.Context, id int64) (*domain.Actor, error) {
-	var actor domain.Actor
-	query := `SELECT id, actor_id, is_fireproof, created_at, updated_at FROM actors WHERE id = ?`
-	err := tx.tx.GetContext(ctx, &actor, query, id)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find actor by id %d: %w", id, err)
-	}
-	return &actor, nil
-}
-
+// GetOrCreateActor finds an actor or creates them if they don't exist.
 func (tx *SQLiteTx) GetOrCreateActor(ctx context.Context, actorID string) (*domain.Actor, error) {
 	var actor domain.Actor
 	query := `SELECT id, actor_id, is_fireproof, created_at, updated_at FROM actors WHERE actor_id = ?`
 	err := tx.tx.GetContext(ctx, &actor, query, actorID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			insertQuery := `INSERT INTO actors (actor_id) VALUES (?)`
-			result, err := tx.tx.ExecContext(ctx, insertQuery, actorID)
+			insertQuery := `INSERT INTO actors (actor_id) VALUES (?) RETURNING id, actor_id, is_fireproof, created_at, updated_at`
+			err = tx.tx.GetContext(ctx, &actor, insertQuery, actorID)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create actor %s: %w", actorID, err)
 			}
-			id, err := result.LastInsertId()
-			if err != nil {
-				return nil, fmt.Errorf("failed to get last insert ID for actor %s: %w", actorID, err)
-			}
-			return tx.findActorByID(ctx, id)
+			return &actor, nil
 		}
 		return nil, fmt.Errorf("failed to find actor %s: %w", actorID, err)
 	}
 	return &actor, nil
 }
 
+// FindActorByActorID retrieves an actor by their canonical Actor ID within a transaction.
 func (tx *SQLiteTx) FindActorByActorID(ctx context.Context, actorID string) (*domain.Actor, error) {
 	var actor domain.Actor
 	query := `SELECT id, actor_id, is_fireproof, created_at, updated_at FROM actors WHERE actor_id = ?`
@@ -310,48 +303,44 @@ func (tx *SQLiteTx) FindActorByActorID(ctx context.Context, actorID string) (*do
 	return &actor, nil
 }
 
+// ActorExists checks if an actor with the given ID exists.
 func (tx *SQLiteTx) ActorExists(ctx context.Context, actorID string) (bool, error) {
-	var exists int
-	query := `SELECT 1 FROM actors WHERE actor_id = ?`
+	var exists bool
+	query := `SELECT EXISTS(SELECT 1 FROM actors WHERE actor_id = ?)`
 	err := tx.tx.GetContext(ctx, &exists, query, actorID)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+	if err != nil {
 		return false, fmt.Errorf("failed to check for existing actor ID: %w", err)
 	}
-	return exists == 1, nil
+	return exists, nil
 }
 
+// UpdateActorID atomically renames an actor.
 func (tx *SQLiteTx) UpdateActorID(ctx context.Context, oldActorID, newActorID string) (int64, error) {
 	query := `UPDATE actors SET actor_id = ?, updated_at = CURRENT_TIMESTAMP WHERE actor_id = ?`
 	result, err := tx.tx.ExecContext(ctx, query, newActorID, oldActorID)
 	if err != nil {
-		return 0, fmt.Errorf("failed to update actor ID: %w", err)
+		return 0, fmt.Errorf("failed to update actor ID from %s to %s: %w", oldActorID, newActorID, err)
 	}
-	return result.RowsAffected()
-}
-
-func (tx *SQLiteTx) findPublicKeyByID(ctx context.Context, id int64) (*domain.PublicKey, error) {
-	var key domain.PublicKey
-	query := `SELECT id, actor_id, key_id, public_key, created_at, merkle_root, revoked_at, revoke_root FROM public_keys WHERE id = ?`
-	err := tx.tx.GetContext(ctx, &key, query, id)
+	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		return nil, fmt.Errorf("failed to find key by id %d: %w", id, err)
+		return 0, fmt.Errorf("failed to get rows affected for move identity: %w", err)
 	}
-	return &key, nil
+	return rowsAffected, nil
 }
 
+// InsertPublicKey adds a new public key record.
 func (tx *SQLiteTx) InsertPublicKey(ctx context.Context, key *domain.PublicKey) (*domain.PublicKey, error) {
-	query := `INSERT INTO public_keys (actor_id, key_id, public_key, merkle_root) VALUES (?, ?, ?, ?)`
-	result, err := tx.tx.ExecContext(ctx, query, key.ActorID, key.KeyID, key.PublicKey, key.MerkleRoot)
+	query := `
+		INSERT INTO public_keys (actor_id, key_id, public_key, merkle_root, created_at)
+		VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP) RETURNING id, created_at`
+	err := tx.tx.QueryRowxContext(ctx, query, key.ActorID, key.KeyID, key.PublicKey, key.MerkleRoot).Scan(&key.ID, &key.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert new public key: %w", err)
 	}
-	id, err := result.LastInsertId()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get last insert ID for key: %w", err)
-	}
-	return tx.findPublicKeyByID(ctx, id)
+	return key, nil
 }
 
+// FindKeyToRevoke finds a public key for a given actor that is eligible for revocation.
 func (tx *SQLiteTx) FindKeyToRevoke(ctx context.Context, actorID, publicKey string) (*domain.PublicKey, error) {
 	var keyToRevoke domain.PublicKey
 	query := `
@@ -361,75 +350,81 @@ func (tx *SQLiteTx) FindKeyToRevoke(ctx context.Context, actorID, publicKey stri
 	err := tx.tx.GetContext(ctx, &keyToRevoke, query, actorID, publicKey)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
+			return nil, nil // Not found is okay
 		}
 		return nil, fmt.Errorf("failed to find key to revoke: %w", err)
 	}
 	return &keyToRevoke, nil
 }
 
+// RevokeKey marks a public key as revoked.
 func (tx *SQLiteTx) RevokeKey(ctx context.Context, keyID int64, revokeRoot string) error {
 	query := `UPDATE public_keys SET revoked_at = CURRENT_TIMESTAMP, revoke_root = ? WHERE id = ?`
 	_, err := tx.tx.ExecContext(ctx, query, revokeRoot, keyID)
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to execute revoke key query: %w", err)
+	}
+	return nil
 }
 
+// GetMessageHashesForActor retrieves all message hashes (merkle roots) for an actor's keys.
 func (tx *SQLiteTx) GetMessageHashesForActor(ctx context.Context, actorID int64) ([]string, error) {
 	var messageHashes []string
 	query := `
 		SELECT merkle_root FROM public_keys WHERE actor_id = ?
 		UNION
 		SELECT revoke_root FROM public_keys WHERE actor_id = ? AND revoke_root IS NOT NULL`
-	err := tx.tx.SelectContext(ctx, &messageHashes, query, actorID, actorID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to gather message hashes: %w", err)
+	if err := tx.tx.SelectContext(ctx, &messageHashes, query, actorID, actorID); err != nil {
+		return nil, fmt.Errorf("failed to gather message hashes for actor %d: %w", actorID, err)
 	}
 	return messageHashes, nil
 }
 
+// RevokeAllKeysForActor marks all of an actor's keys as revoked.
 func (tx *SQLiteTx) RevokeAllKeysForActor(ctx context.Context, actorID int64, merkleRoot string) error {
 	query := `UPDATE public_keys SET revoked_at = CURRENT_TIMESTAMP, revoke_root = ? WHERE actor_id = ? AND revoked_at IS NULL`
-	_, err := tx.tx.ExecContext(ctx, query, merkleRoot, actorID)
-	return err
-}
-
-func (tx *SQLiteTx) findAuxDataByID(ctx context.Context, id int64) (*domain.AuxiliaryData, error) {
-	var aux domain.AuxiliaryData
-	query := `SELECT id, actor_id, aux_id, aux_type, aux_data, created_at, merkle_root, revoked_at, revoke_root FROM auxiliary_data WHERE id = ?`
-	err := tx.tx.GetContext(ctx, &aux, query, id)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find aux data by id %d: %w", id, err)
+	if _, err := tx.tx.ExecContext(ctx, query, merkleRoot, actorID); err != nil {
+		return fmt.Errorf("failed to revoke keys for actor %d: %w", actorID, err)
 	}
-	return &aux, nil
+	return nil
 }
 
+// InsertAuxData adds a new auxiliary data record.
 func (tx *SQLiteTx) InsertAuxData(ctx context.Context, aux *domain.AuxiliaryData) (*domain.AuxiliaryData, error) {
-	query := `INSERT INTO auxiliary_data (actor_id, aux_id, aux_type, aux_data, merkle_root) VALUES (?, ?, ?, ?, ?)`
-	result, err := tx.tx.ExecContext(ctx, query, aux.ActorID, aux.AuxID, aux.AuxType, aux.AuxData, aux.MerkleRoot)
+	query := `
+		INSERT INTO auxiliary_data (actor_id, aux_id, aux_type, aux_data, merkle_root, created_at)
+		VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP) RETURNING id, created_at`
+	err := tx.tx.QueryRowxContext(ctx, query, aux.ActorID, aux.AuxID, aux.AuxType, aux.AuxData, aux.MerkleRoot).Scan(&aux.ID, &aux.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert new auxiliary data: %w", err)
 	}
-	id, err := result.LastInsertId()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get last insert ID for aux data: %w", err)
-	}
-	return tx.findAuxDataByID(ctx, id)
+	return aux, nil
 }
 
+// RevokeAuxData marks an auxiliary data record as revoked.
 func (tx *SQLiteTx) RevokeAuxData(ctx context.Context, actorID, auxID, revokeRoot string) (int64, error) {
 	query := `
 		UPDATE auxiliary_data
 		SET revoked_at = CURRENT_TIMESTAMP, revoke_root = ?
-		WHERE aux_id = ? AND actor_id = (SELECT id FROM actors WHERE actor_id = ?)`
-	result, err := tx.tx.ExecContext(ctx, query, revokeRoot, auxID, actorID)
+		WHERE id IN (
+			SELECT ad.id
+			FROM auxiliary_data ad
+			JOIN actors a ON ad.actor_id = a.id
+			WHERE a.actor_id = ?
+			  AND ad.aux_id = ?
+			  AND ad.revoked_at IS NULL
+		)`
+	result, err := tx.tx.ExecContext(ctx, query, revokeRoot, actorID, auxID)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to execute revoke auxiliary data query: %w", err)
 	}
 	return result.RowsAffected()
 }
 
+
+// StoreSymmetricKeys stores a batch of symmetric keys.
 func (tx *SQLiteTx) StoreSymmetricKeys(ctx context.Context, messageHash string, keys map[string][]byte) (err error) {
-	stmt, err := tx.tx.PreparexContext(ctx, `INSERT INTO symmetric_keys (message_hash, attribute, key) VALUES (?, ?, ?)`)
+	stmt, err := tx.tx.PreparexContext(ctx, `INSERT INTO symmetric_keys (message_hash, attribute, key, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)`)
 	if err != nil {
 		return fmt.Errorf("failed to prepare symmetric key statement: %w", err)
 	}
@@ -438,6 +433,7 @@ func (tx *SQLiteTx) StoreSymmetricKeys(ctx context.Context, messageHash string, 
 			err = fmt.Errorf("failed to close symmetric key statement: %w", closeErr)
 		}
 	}()
+
 	for attribute, key := range keys {
 		if _, err := stmt.ExecContext(ctx, messageHash, attribute, key); err != nil {
 			return fmt.Errorf("failed to insert symmetric key for attribute %s: %w", attribute, err)
@@ -446,6 +442,7 @@ func (tx *SQLiteTx) StoreSymmetricKeys(ctx context.Context, messageHash string, 
 	return nil
 }
 
+// DeleteSymmetricKeysByHashes deletes symmetric keys based on a list of message hashes.
 func (tx *SQLiteTx) DeleteSymmetricKeysByHashes(ctx context.Context, hashes []string) error {
 	if len(hashes) == 0 {
 		return nil

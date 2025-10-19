@@ -105,7 +105,13 @@ server:
   key_password: "your-password" # Optional, if the key is encrypted
 
 database:
+  driver: "postgres" # or "sqlite"
   dsn: "postgresql://user:password@localhost:5432/pkd?sslmode=disable"
+
+# Example for SQLite:
+# database:
+#   driver: "sqlite"
+#   dsn: "/var/lib/pkd-server-go/pkd.sqlite"
 
 sigsum:
   url: "http://localhost:8081"

@@ -5,12 +5,17 @@ import (
 
 	"github.com/fedi-e2ee/pkd-server-go/internal/domain"
 	"github.com/fedi-e2ee/pkd-server-go/internal/protocol"
+	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/mock"
 )
 
 // MockRepository is a mock implementation of the db.Repository interface.
 type MockRepository struct {
 	mock.Mock
+}
+
+func (m *MockRepository) DB() *sqlx.DB {
+	return nil
 }
 
 func (m *MockRepository) BeginTx(ctx context.Context) (domain.TransactionalRepository, error) {

@@ -63,7 +63,8 @@ type KeyFile struct {
 
 // Database holds the configuration for the database connection.
 type Database struct {
-	DSN string `mapstructure:"dsn"`
+	Driver string `mapstructure:"driver"`
+	DSN    string `mapstructure:"dsn"`
 }
 
 // SigSum holds the configuration for the SigSum client.
