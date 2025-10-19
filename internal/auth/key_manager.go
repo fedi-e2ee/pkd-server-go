@@ -30,9 +30,6 @@ type fileKeyManager struct {
 // NewFileKeyManager creates a new fileKeyManager. If the key file does not
 // exist or is empty, it will be created with a new random key.
 func NewFileKeyManager(keyFilePath string, password []byte, time, memory uint32, threads uint8) (KeyManager, error) {
-	if len(password) == 0 {
-		return nil, errors.New("password cannot be empty")
-	}
 	km := &fileKeyManager{
 		keyFilePath:     keyFilePath,
 		password:        password,
@@ -59,6 +56,11 @@ func (km *fileKeyManager) GetPasetoSymmetricKey() ([]byte, error) {
 	data, err := os.ReadFile(km.keyFilePath)
 	if err != nil {
 		return nil, err
+	}
+
+	// If no password is provided, the key is stored in plaintext.
+	if len(km.password) == 0 {
+		return base64.RawURLEncoding.DecodeString(string(data))
 	}
 
 	parts := bytes.Split(data, []byte(":"))
@@ -90,6 +92,12 @@ func (km *fileKeyManager) generateAndSaveKey() error {
 	newKey := make([]byte, 32)
 	if _, err := rand.Read(newKey); err != nil {
 		return err
+	}
+
+	// If no password is provided, save the key in plaintext.
+	if len(km.password) == 0 {
+		keyB64 := base64.RawURLEncoding.EncodeToString(newKey)
+		return os.WriteFile(km.keyFilePath, []byte(keyB64), 0600)
 	}
 
 	// Generate a random salt.

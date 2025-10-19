@@ -50,9 +50,15 @@ func TestFileKeyManager(t *testing.T) {
 
 	t.Run("NewFileKeyManager_EmptyPassword", func(t *testing.T) {
 		keyFilePath := t.TempDir() + "/test.key"
-		_, err := NewFileKeyManager(keyFilePath, []byte(""), time, memory, threads)
-		assert.Error(t, err)
-		assert.Equal(t, "password cannot be empty", err.Error())
+		// Create a new key manager with an empty password.
+		km, err := NewFileKeyManager(keyFilePath, []byte{}, time, memory, threads)
+		require.NoError(t, err)
+		assert.NotNil(t, km)
+
+		// Get the key.
+		key, err := km.GetPasetoSymmetricKey()
+		require.NoError(t, err)
+		assert.Len(t, key, 32)
 	})
 
 	t.Run("GetPasetoSymmetricKey_InvalidFileFormat", func(t *testing.T) {
