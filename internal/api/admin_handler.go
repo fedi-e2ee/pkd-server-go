@@ -16,6 +16,7 @@ import (
 	"github.com/fedi-e2ee/pkd-server-go/internal/domain"
 	"github.com/fedi-e2ee/pkd-server-go/internal/protocol"
 	"github.com/fedi-e2ee/pkd-server-go/internal/util"
+	"github.com/gowebpki/jcs"
 )
 
 // TriggerCheckpointRequest is the request body for the admin endpoint that
@@ -145,9 +146,14 @@ func (s *Server) handleTriggerCheckpoint(w http.ResponseWriter, r *http.Request)
 		Action:     protoMsg.Action,
 		Message:    protoMsg.Message,
 	}
-	signedMsgBytes, err := json.Marshal(signedMsg)
+	tempBytes, err := json.Marshal(signedMsg)
 	if err != nil {
 		s.respondWithError(w, http.StatusInternalServerError, "Failed to marshal signed message for signing")
+		return
+	}
+	signedMsgBytes, err := jcs.Transform(tempBytes)
+	if err != nil {
+		s.respondWithError(w, http.StatusInternalServerError, "Failed to canonicalize signed message for signing")
 		return
 	}
 

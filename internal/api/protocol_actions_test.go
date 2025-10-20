@@ -16,6 +16,7 @@ import (
 	"github.com/fedi-e2ee/pkd-server-go/internal/domain"
 	"github.com/fedi-e2ee/pkd-server-go/internal/protocol"
 	"github.com/fedi-e2ee/pkd-server-go/internal/sigsum"
+	"github.com/gowebpki/jcs"
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -166,7 +167,9 @@ func TestProcessAddKeyAction_FirstKey(t *testing.T) {
 		Message:          addKeyMsgJSON,
 		RecentMerkleRoot: "test-merkle-root",
 	}
-	signedMsgBytes, err := json.Marshal(signedMsg)
+	tempBytes, err := json.Marshal(signedMsg)
+	assert.NoError(t, err)
+	signedMsgBytes, err := jcs.Transform(tempBytes)
 	assert.NoError(t, err)
 
 	// Sign the message
@@ -252,7 +255,8 @@ func TestProcessCheckpointAction(t *testing.T) {
 	signedMsg := protocol.SignedMessage{
 		PKDContext: protocol.PKDContextV1, Action: "Checkpoint", Message: checkpointMsgJSON,
 	}
-	signedMsgBytes, _ := json.Marshal(signedMsg)
+	tempBytes, _ := json.Marshal(signedMsg)
+	signedMsgBytes, _ := jcs.Transform(tempBytes)
 	signature := ed25519.Sign(priv, signedMsgBytes)
 	signatureStr := base64.RawURLEncoding.EncodeToString(signature)
 
@@ -285,7 +289,8 @@ func TestProcessFireproofAction(t *testing.T) {
 	signedMsg := protocol.SignedMessage{
 		PKDContext: protocol.PKDContextV1, Action: "Fireproof", Message: fireproofMsgJSON, RecentMerkleRoot: "test-merkle-root",
 	}
-	signedMsgBytes, _ := json.Marshal(signedMsg)
+	tempBytes, _ := json.Marshal(signedMsg)
+	signedMsgBytes, _ := jcs.Transform(tempBytes)
 	signature := ed25519.Sign(priv, signedMsgBytes)
 	signatureStr := base64.RawURLEncoding.EncodeToString(signature)
 
@@ -321,7 +326,8 @@ func TestProcessUndoFireproofAction(t *testing.T) {
 	signedMsg := protocol.SignedMessage{
 		PKDContext: protocol.PKDContextV1, Action: "UndoFireproof", Message: undoMsgJSON, RecentMerkleRoot: "test-merkle-root",
 	}
-	signedMsgBytes, _ := json.Marshal(signedMsg)
+	tempBytes, _ := json.Marshal(signedMsg)
+	signedMsgBytes, _ := jcs.Transform(tempBytes)
 	signature := ed25519.Sign(priv, signedMsgBytes)
 	signatureStr := base64.RawURLEncoding.EncodeToString(signature)
 
@@ -358,7 +364,8 @@ func TestProcessAddAuxDataAction(t *testing.T) {
 	signedMsg := protocol.SignedMessage{
 		PKDContext: protocol.PKDContextV1, Action: "AddAuxData", Message: addAuxMsgJSON, RecentMerkleRoot: "test-merkle-root",
 	}
-	signedMsgBytes, _ := json.Marshal(signedMsg)
+	tempBytes, _ := json.Marshal(signedMsg)
+	signedMsgBytes, _ := jcs.Transform(tempBytes)
 	signature := ed25519.Sign(priv, signedMsgBytes)
 	signatureStr := base64.RawURLEncoding.EncodeToString(signature)
 
@@ -396,7 +403,8 @@ func TestProcessRevokeAuxDataAction(t *testing.T) {
 	signedMsg := protocol.SignedMessage{
 		PKDContext: protocol.PKDContextV1, Action: "RevokeAuxData", Message: revokeAuxMsgJSON, RecentMerkleRoot: "test-merkle-root",
 	}
-	signedMsgBytes, _ := json.Marshal(signedMsg)
+	tempBytes, _ := json.Marshal(signedMsg)
+	signedMsgBytes, _ := jcs.Transform(tempBytes)
 	signature := ed25519.Sign(priv, signedMsgBytes)
 	signatureStr := base64.RawURLEncoding.EncodeToString(signature)
 
@@ -451,7 +459,9 @@ func TestProcessRevokeKeyAction(t *testing.T) {
 		Message:          revokeMsgJSON,
 		RecentMerkleRoot: "test-merkle-root",
 	}
-	signedMsgBytes, err := json.Marshal(signedMsg)
+	tempBytes, err := json.Marshal(signedMsg)
+	assert.NoError(t, err)
+	signedMsgBytes, err := jcs.Transform(tempBytes)
 	assert.NoError(t, err)
 
 	signature := ed25519.Sign(priv1, signedMsgBytes)
@@ -515,7 +525,9 @@ func TestProcessMoveIdentityAction(t *testing.T) {
 		Message:          moveMsgJSON,
 		RecentMerkleRoot: "test-merkle-root",
 	}
-	signedMsgBytes, err := json.Marshal(signedMsg)
+	tempBytes, err := json.Marshal(signedMsg)
+	assert.NoError(t, err)
+	signedMsgBytes, err := jcs.Transform(tempBytes)
 	assert.NoError(t, err)
 
 	signature := ed25519.Sign(priv, signedMsgBytes)
@@ -574,7 +586,9 @@ func TestProcessBurnDownAction(t *testing.T) {
 		Message:          burnMsgJSON,
 		RecentMerkleRoot: "test-merkle-root",
 	}
-	signedMsgBytes, err := json.Marshal(signedMsg)
+	tempBytes, err := json.Marshal(signedMsg)
+	assert.NoError(t, err)
+	signedMsgBytes, err := jcs.Transform(tempBytes)
 	assert.NoError(t, err)
 
 	signature := ed25519.Sign(priv, signedMsgBytes)

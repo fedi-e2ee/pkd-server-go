@@ -25,6 +25,7 @@ import (
 	"github.com/cloudflare/circl/kem"
 	"github.com/fedi-e2ee/pkd-server-go/internal/api"
 	"github.com/fedi-e2ee/pkd-server-go/internal/auth"
+	"github.com/gowebpki/jcs"
 	"github.com/fedi-e2ee/pkd-server-go/internal/config"
 	"github.com/fedi-e2ee/pkd-server-go/internal/crypto"
 	"github.com/fedi-e2ee/pkd-server-go/internal/db"
@@ -302,7 +303,11 @@ func AddSampleKey(t *testing.T, ti *TestInstance, username string, signingKey ed
 		Action:     "AddKey",
 		Message:    addKeyMsgBytes,
 	}
-	signedMsgBytes, err := json.Marshal(signedMsg)
+	tempBytes, err := json.Marshal(signedMsg)
+	if err != nil {
+		return "", nil, nil, err
+	}
+	signedMsgBytes, err := jcs.Transform(tempBytes)
 	if err != nil {
 		return "", nil, nil, err
 	}

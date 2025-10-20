@@ -87,81 +87,107 @@ func TestSignedMessage(t *testing.T) {
 
 func TestMessageStructs(t *testing.T) {
 	testCases := []struct {
-		name     string
-		message  interface{}
-		jsonData string
+		name           string
+		message        interface{}
+		validJSON      string
+		invalidJSON    []string // JSON strings that should fail to unmarshal
+		corruptedJSON  string   // Malformed JSON
 	}{
 		{
-			name:     "AddKeyMessage",
-			message:  &AddKeyMessage{},
-			jsonData: `{"actor":"a","time":"t","public-key":"pk"}`,
+			name:        "AddKeyMessage",
+			message:     &AddKeyMessage{},
+			validJSON:   `{"actor":"a","time":"t","public-key":"pk"}`,
+			invalidJSON: []string{`{"time":"t","public-key":"pk"}`}, // Missing actor
 		},
 		{
-			name:     "RevokeKeyMessage",
-			message:  &RevokeKeyMessage{},
-			jsonData: `{"actor":"a","time":"t","public-key":"pk"}`,
+			name:        "RevokeKeyMessage",
+			message:     &RevokeKeyMessage{},
+			validJSON:   `{"actor":"a","time":"t","public-key":"pk"}`,
+			invalidJSON: []string{`{"actor":"a","time":"t"}`}, // Missing public-key
 		},
 		{
-			name:     "RevokeKeyThirdPartyMessage",
-			message:  &RevokeKeyThirdPartyMessage{},
-			jsonData: `{"action":"a","revocation-token":"rt"}`,
+			name:        "RevokeKeyThirdPartyMessage",
+			message:     &RevokeKeyThirdPartyMessage{},
+			validJSON:   `{"action":"a","revocation-token":"rt"}`,
+			invalidJSON: []string{`{"action":"a"}`}, // Missing revocation-token
 		},
 		{
-			name:     "MoveIdentityMessage",
-			message:  &MoveIdentityMessage{},
-			jsonData: `{"old-actor":"oa","new-actor":"na","time":"t"}`,
+			name:        "MoveIdentityMessage",
+			message:     &MoveIdentityMessage{},
+			validJSON:   `{"old-actor":"oa","new-actor":"na","time":"t"}`,
+			invalidJSON: []string{`{"new-actor":"na","time":"t"}`}, // Missing old-actor
 		},
 		{
-			name:     "BurnDownMessage",
-			message:  &BurnDownMessage{},
-			jsonData: `{"actor":"a","operator":"o","time":"t"}`,
+			name:        "BurnDownMessage",
+			message:     &BurnDownMessage{},
+			validJSON:   `{"actor":"a","operator":"o","time":"t"}`,
+			invalidJSON: []string{`{"operator":"o","time":"t"}`}, // Missing actor
 		},
 		{
-			name:     "FireproofMessage",
-			message:  &FireproofMessage{},
-			jsonData: `{"actor":"a","time":"t"}`,
+			name:        "FireproofMessage",
+			message:     &FireproofMessage{},
+			validJSON:   `{"actor":"a","time":"t"}`,
+			invalidJSON: []string{`{"time":"t"}`}, // Missing actor
 		},
 		{
-			name:     "UndoFireproofMessage",
-			message:  &UndoFireproofMessage{},
-			jsonData: `{"actor":"a","time":"t"}`,
+			name:        "UndoFireproofMessage",
+			message:     &UndoFireproofMessage{},
+			validJSON:   `{"actor":"a","time":"t"}`,
+			invalidJSON: []string{`{"time":"t"}`}, // Missing actor
 		},
 		{
-			name:     "AddAuxDataMessage",
-			message:  &AddAuxDataMessage{},
-			jsonData: `{"actor":"a","aux-type":"at","aux-data":"ad","aux-id":"ai","time":"t"}`,
+			name:        "AddAuxDataMessage",
+			message:     &AddAuxDataMessage{},
+			validJSON:   `{"actor":"a","aux-type":"at","aux-data":"ad","aux-id":"ai","time":"t"}`,
+			invalidJSON: []string{`{"aux-type":"at","aux-data":"ad","time":"t"}`}, // Missing actor
 		},
 		{
-			name:     "RevokeAuxDataMessage",
-			message:  &RevokeAuxDataMessage{},
-			jsonData: `{"actor":"a","aux-type":"at","aux-data":"ad","aux-id":"ai","time":"t"}`,
+			name:        "RevokeAuxDataMessage",
+			message:     &RevokeAuxDataMessage{},
+			validJSON:   `{"actor":"a","aux-type":"at","aux-data":"ad","aux-id":"ai","time":"t"}`,
+			invalidJSON: []string{`{"aux-type":"at","time":"t"}`}, // Missing actor and aux-data/aux-id
 		},
 		{
-			name:     "QueryMessage",
-			message:  &QueryMessage{},
-			jsonData: `{"actor":"a"}`,
+			name:        "QueryMessage",
+			message:     &QueryMessage{},
+			validJSON:   `{"actor":"a"}`,
+			invalidJSON: []string{`{}`}, // Missing actor
 		},
 		{
-			name:     "CheckpointMessage",
-			message:  &CheckpointMessage{},
-			jsonData: `{"time":"t","from-directory":"fd","from-root":"fr","from-public-key":"fpk","to-directory":"td","to-validated-root":"tvr"}`,
+			name:        "CheckpointMessage",
+			message:     &CheckpointMessage{},
+			validJSON:   `{"time":"t","from-directory":"fd","from-root":"fr","from-public-key":"fpk","to-directory":"td","to-validated-root":"tvr"}`,
+			invalidJSON: []string{`{"from-directory":"fd","from-root":"fr"}`}, // Missing fields
 		},
 	}
 
 	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			// Test unmarshalling
-			err := json.Unmarshal([]byte(tc.jsonData), tc.message)
-			assert.NoError(t, err)
+		t.Run(tc.name+"-Valid", func(t *testing.T) {
+			// Test unmarshalling valid JSON
+			err := json.Unmarshal([]byte(tc.validJSON), tc.message)
+			assert.NoError(t, err, "Should unmarshal valid JSON without error")
 
-			// Test marshalling
+			// Test marshalling and re-unmarshalling
 			jsonData, err := json.Marshal(tc.message)
-			assert.NoError(t, err)
-
-			// Unmarshal again and compare
-			var unmarshalledMsg interface{}
-			err = json.Unmarshal(jsonData, &unmarshalledMsg)
-			assert.NoError(t, err)
+			assert.NoError(t, err, "Should marshal to JSON without error")
+			err = json.Unmarshal(jsonData, tc.message)
+			assert.NoError(t, err, "Should unmarshal back from marshalled JSON without error")
 		})
+
+		if len(tc.invalidJSON) > 0 {
+			t.Run(tc.name+"-Invalid", func(t *testing.T) {
+				for _, invalid := range tc.invalidJSON {
+					err := json.Unmarshal([]byte(invalid), tc.message)
+					assert.Error(t, err, "Should return an error for JSON with missing fields")
+				}
+			})
+		}
+
+		if tc.corruptedJSON != "" {
+			t.Run(tc.name+"-Corrupted", func(t *testing.T) {
+				err := json.Unmarshal([]byte(tc.corruptedJSON), tc.message)
+				assert.Error(t, err, "Should return an error for corrupted JSON")
+			})
+		}
 	}
 }

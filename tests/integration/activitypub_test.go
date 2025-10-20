@@ -17,6 +17,7 @@ import (
 	pkd_crypto "github.com/fedi-e2ee/pkd-server-go/internal/crypto"
 	"github.com/fedi-e2ee/pkd-server-go/internal/protocol"
 	"github.com/fedi-e2ee/pkd-server-go/internal/testutil"
+	"github.com/gowebpki/jcs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -85,7 +86,9 @@ func TestActivityPubUnsignedRequestFails(t *testing.T) {
 		Action:     "AddKey",
 		Message:    addKeyMsgBytes,
 	}
-	signedMsgBytes, err := json.Marshal(signedMsg)
+	tempBytes, err := json.Marshal(signedMsg)
+	require.NoError(t, err)
+	signedMsgBytes, err := jcs.Transform(tempBytes)
 	require.NoError(t, err)
 
 	signature, err := pkd_crypto.SignMessage(dummyPrivKey, signedMsgBytes)
@@ -129,7 +132,9 @@ func TestActivityPubSignedRequestSucceeds(t *testing.T) {
 		Action:     "AddKey",
 		Message:    addKeyMsgBytes,
 	}
-	signedMsgBytes, err := json.Marshal(signedMsg)
+	tempBytes, err := json.Marshal(signedMsg)
+	require.NoError(t, err)
+	signedMsgBytes, err := jcs.Transform(tempBytes)
 	require.NoError(t, err)
 	innerSignature, err := pkd_crypto.SignMessage(actorPrivKey, signedMsgBytes)
 	require.NoError(t, err)
