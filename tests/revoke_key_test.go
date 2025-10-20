@@ -11,6 +11,7 @@ import (
 	"github.com/fedi-e2ee/pkd-server-go/internal/crypto"
 	"github.com/fedi-e2ee/pkd-server-go/internal/protocol"
 	"github.com/fedi-e2ee/pkd-server-go/internal/testutil"
+	"github.com/gowebpki/jcs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -48,7 +49,9 @@ func TestRevokeKey_Success(t *testing.T) {
 		Action:     protocolMsg.Action,
 		Message:    protocolMsg.Message,
 	}
-	signedMsgBytes, err := json.Marshal(signedMsg)
+	tempBytes, err := json.Marshal(signedMsg)
+	require.NoError(t, err)
+	signedMsgBytes, err := jcs.Transform(tempBytes)
 	require.NoError(t, err)
 	signature, err := crypto.SignMessage(privKey2, signedMsgBytes)
 	require.NoError(t, err)

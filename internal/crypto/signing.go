@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/fedi-e2ee/pkd-server-go/internal/protocol"
+	"github.com/gowebpki/jcs"
 )
 
 var (
@@ -41,9 +42,16 @@ func VerifyMessageSignature(msg *protocol.ProtocolMessage, publicKey ed25519.Pub
 		Message:          msg.Message,
 		RecentMerkleRoot: msg.RecentMerkleRoot,
 	}
-	signedMsgBytes, err := json.Marshal(signedMsg)
+	// Marshal to temporary JSON, then canonicalize using JCS (RFC8785)
+	tempBytes, err := json.Marshal(signedMsg)
 	if err != nil {
 		return fmt.Errorf("failed to marshal signed message for verification: %w", err)
+	}
+
+	signedMsgBytes, err := jcs.Transform(tempBytes)
+	if err != nil {
+		// This should not happen with valid input
+		return fmt.Errorf("failed to canonicalize signed message for verification: %w", err)
 	}
 
 	sig, err := base64.RawURLEncoding.DecodeString(msg.Signature)

@@ -15,6 +15,7 @@ import (
 	"github.com/fedi-e2ee/pkd-server-go/internal/crypto"
 	"github.com/fedi-e2ee/pkd-server-go/internal/db"
 	"github.com/fedi-e2ee/pkd-server-go/internal/protocol"
+	"github.com/gowebpki/jcs"
 )
 
 // Scheduler manages automated checkpoints.
@@ -119,9 +120,14 @@ func (s *Scheduler) triggerCheckpoint() {
 		Action:     protoMsg.Action,
 		Message:    protoMsg.Message,
 	}
-	signedMsgBytes, err := json.Marshal(signedMsg)
+	tempBytes, err := json.Marshal(signedMsg)
 	if err != nil {
 		s.logger.Printf("Error marshalling signed message for checkpoint: %v", err)
+		return
+	}
+	signedMsgBytes, err := jcs.Transform(tempBytes)
+	if err != nil {
+		s.logger.Printf("Error canonicalizing signed message for checkpoint: %v", err)
 		return
 	}
 
