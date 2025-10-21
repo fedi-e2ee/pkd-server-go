@@ -39,11 +39,6 @@ jobs:
       - name: Build
         run: go build -v ./...
 
-      - name: Start SigSum Server
-        run: |
-          go run github.com/sigsum/sigsum-go/cmd/sigsum-log-server@v0.2.0 &
-          sleep 5
-
       - name: Test with ${{ matrix.db }}
         run: go test -v ./...
         env:

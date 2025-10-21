@@ -14,7 +14,7 @@ import (
 	"github.com/fedi-e2ee/pkd-server-go/internal/config"
 	"github.com/fedi-e2ee/pkd-server-go/internal/domain"
 	"github.com/fedi-e2ee/pkd-server-go/internal/protocol"
-	"github.com/fedi-e2ee/pkd-server-go/internal/sigsum"
+	"github.com/fedi-e2ee/pkd-server-go/internal/tlog"
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/mock"
 
@@ -216,6 +216,19 @@ func (m *MockRepository) Ping(ctx context.Context) error {
 	return args.Error(0)
 }
 
+func (m *MockRepository) AddTlogEntry(ctx context.Context, merkleRoot []byte, signedMessage []byte, publicKeyHash []byte) error {
+	args := m.Called(ctx, merkleRoot, signedMessage, publicKeyHash)
+	return args.Error(0)
+}
+
+func (m *MockRepository) GetAllTlogEntries(ctx context.Context) ([]*domain.TlogEntry, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.TlogEntry), args.Error(1)
+}
+
 func (m *MockRepository) Close() error {
 	args := m.Called()
 	return args.Error(0)
@@ -226,7 +239,7 @@ func FuzzHTTPHandlers(f *testing.F) {
 	mockRepo := new(MockRepository)
 	mockTx := new(MockTransactionalRepository)
 	service := domain.NewPKDService(mockRepo, nil)
-	sigsumClient := &sigsum.MockClient{}
+	tlogClient := &tlog.MockClient{}
 	logger := log.New(os.Stdout, "FUZZ_TEST ", log.LstdFlags)
 
 	// Create a temporary key file for the test run.
@@ -258,7 +271,7 @@ func FuzzHTTPHandlers(f *testing.F) {
 	runtimeState := &api.RuntimeState{
 		Repo:           mockRepo,
 		Service:        service,
-		SigsumClient:   sigsumClient,
+		TlogClient:     tlogClient,
 		Logger:         logger,
 		HPKEPublicKey:  nil,
 		HPKEPrivateKey: nil,
@@ -303,7 +316,7 @@ func FuzzProtocolHandler(f *testing.F) {
 	// Setup a minimal test instance with a mock repository.
 	mockRepo := new(MockRepository)
 	mockTx := new(MockTransactionalRepository)
-	sigsumClient := &sigsum.MockClient{}
+	tlogClient := &tlog.MockClient{}
 	logger := log.New(os.Stdout, "FUZZ_TEST ", log.LstdFlags)
 
 	// Create a temporary key file for the test run.
@@ -344,7 +357,7 @@ func FuzzProtocolHandler(f *testing.F) {
 	runtimeState := &api.RuntimeState{
 		Repo:           mockRepo,
 		Service:        mockService,
-		SigsumClient:   sigsumClient,
+		TlogClient:     tlogClient,
 		Logger:         logger,
 		HPKEPublicKey:  nil,
 		HPKEPrivateKey: nil,
@@ -363,7 +376,7 @@ func FuzzProtocolHandler(f *testing.F) {
 		mockTx.On("InsertPublicKey", mock.Anything, mock.Anything).Return(&domain.PublicKey{KeyID: "new-key-id"}, nil).Maybe()
 		mockTx.On("StoreSymmetricKeys", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 
-		sigsumClient.On("SubmitMessage", mock.Anything, mock.Anything).Return("mock-merkle-root", nil).Maybe()
+		tlogClient.On("SubmitMessage", mock.Anything, mock.Anything).Return("mock-merkle-root", nil).Maybe()
 
 		req := httptest.NewRequest("POST", "/protocol", strings.NewReader(body))
 		rec := httptest.NewRecorder()
@@ -376,7 +389,7 @@ func FuzzGetKeyInfo(f *testing.F) {
 	// Setup a minimal test instance with a mock repository.
 	mockRepo := new(MockRepository)
 	service := domain.NewPKDService(mockRepo, nil)
-	sigsumClient := &sigsum.MockClient{}
+	tlogClient := &tlog.MockClient{}
 	logger := log.New(os.Stdout, "FUZZ_TEST ", log.LstdFlags)
 
 	keyFile, err := os.CreateTemp(f.TempDir(), "test.key")
@@ -407,7 +420,7 @@ func FuzzGetKeyInfo(f *testing.F) {
 	runtimeState := &api.RuntimeState{
 		Repo:           mockRepo,
 		Service:        service,
-		SigsumClient:   sigsumClient,
+		TlogClient:     tlogClient,
 		Logger:         logger,
 		HPKEPublicKey:  nil,
 		HPKEPrivateKey: nil,
@@ -438,7 +451,7 @@ func FuzzGetActorKeys(f *testing.F) {
 	// Setup a minimal test instance with a mock repository.
 	mockRepo := new(MockRepository)
 	service := domain.NewPKDService(mockRepo, nil)
-	sigsumClient := &sigsum.MockClient{}
+	tlogClient := &tlog.MockClient{}
 	logger := log.New(os.Stdout, "FUZZ_TEST ", log.LstdFlags)
 
 	keyFile, err := os.CreateTemp(f.TempDir(), "test.key")
@@ -469,7 +482,7 @@ func FuzzGetActorKeys(f *testing.F) {
 	runtimeState := &api.RuntimeState{
 		Repo:           mockRepo,
 		Service:        service,
-		SigsumClient:   sigsumClient,
+		TlogClient:     tlogClient,
 		Logger:         logger,
 		HPKEPublicKey:  nil,
 		HPKEPrivateKey: nil,

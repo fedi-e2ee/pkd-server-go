@@ -67,3 +67,13 @@ CREATE TABLE totp_secrets (
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX idx_totp_secrets_instance ON totp_secrets(instance);
+
+-- TlogEntries table stores the entries for the transparency log.
+CREATE TABLE tlog_entries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    merkle_root BLOB NOT NULL,
+    signed_message BLOB NOT NULL,
+    public_key_hash BLOB NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_tlog_entries_merkle_root ON tlog_entries(merkle_root);

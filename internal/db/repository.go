@@ -38,6 +38,10 @@ type Repository interface {
 	GetTOTPSecret(ctx context.Context, instance string) ([]byte, error)
 	DeleteTOTPSecret(ctx context.Context, instance string) error
 
+	// Tlog operations
+	AddTlogEntry(ctx context.Context, merkleRoot []byte, signedMessage []byte, publicKeyHash []byte) error
+	GetAllTlogEntries(ctx context.Context) ([]*domain.TlogEntry, error)
+
 	// Health check
 	Ping(ctx context.Context) error
 	Close() error

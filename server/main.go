@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"crypto/ed25519"
 	"fmt"
 	"log"
 	"net/http"
@@ -16,7 +17,7 @@ import (
 	"github.com/fedi-e2ee/pkd-server-go/internal/db"
 	"github.com/fedi-e2ee/pkd-server-go/internal/domain"
 	"github.com/fedi-e2ee/pkd-server-go/internal/auxdata"
-	"github.com/fedi-e2ee/pkd-server-go/internal/sigsum"
+	"github.com/fedi-e2ee/pkd-server-go/internal/tlog"
 )
 
 func main() {
@@ -69,15 +70,18 @@ func main() {
 	}
 	service := domain.NewPKDService(repo, enabledValidators)
 
-	// Initialize the SigSum client
-	sigsumClient := sigsum.NewHTTPClient(cfg.SigSum.URL)
-	logger.Printf("Using SigSum client, configured with URL: %s", cfg.SigSum.URL)
+	// Initialize the Tlog client
+	tlogClient, err := tlog.NewDBClient(ctx, repo, cfg.Server.SigningKey.Public().(ed25519.PublicKey))
+	if err != nil {
+		logger.Fatalf("Failed to initialize tlog client: %v", err)
+	}
+	logger.Printf("Using database-backed Tlog client")
 
 	// Initialize the Router
 	runtimeState := &api.RuntimeState{
 		Repo:           repo,
 		Service:        service,
-		SigsumClient:   sigsumClient,
+		TlogClient:   tlogClient,
 		Logger:         logger,
 		HPKEPublicKey:  cfg.Server.HPKEPublicKey,
 		HPKEPrivateKey: cfg.Server.HPKEPrivateKey,

@@ -16,7 +16,7 @@ import (
 type Config struct {
 	Server           Server              `mapstructure:"server"`
 	Database         Database            `mapstructure:"database"`
-	SigSum           SigSum              `mapstructure:"sigsum"`
+	Tlog             Tlog                `mapstructure:"tlog"`
 	Peers            map[string]Peer     `mapstructure:"peers"`
 	CheckpointPolicy CheckpointPolicy    `mapstructure:"checkpoint_policy"`
 	Test             Test                `mapstructure:"test"`
@@ -67,9 +67,8 @@ type Database struct {
 	DSN    string `mapstructure:"dsn"`
 }
 
-// SigSum holds the configuration for the SigSum client.
-type SigSum struct {
-	URL       string `mapstructure:"url"`
+// Tlog holds the configuration for the Tlog client.
+type Tlog struct {
 	PublicKey string `mapstructure:"public_key"`
 }
 
@@ -84,8 +83,7 @@ func New() *Config {
 			Driver: "postgres",
 			DSN:    "postgresql://user:password@localhost:5432/pkd?sslmode=disable",
 		},
-		SigSum: SigSum{
-			URL:       "http://localhost:8081",
+		Tlog: Tlog{
 			PublicKey: "",
 		},
 	}
@@ -99,7 +97,6 @@ func Load(path string) (*Config, error) {
 	v.SetDefault("server.host", "127.0.0.1")
 	v.SetDefault("server.port", 8080)
 	v.SetDefault("database.dsn", "postgresql://user:password@localhost:5432/pkd?sslmode=disable")
-	v.SetDefault("sigsum.url", "http://localhost:8081")
 
 	// Load from config file
 	if path != "" {

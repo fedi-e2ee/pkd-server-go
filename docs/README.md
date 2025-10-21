@@ -113,10 +113,6 @@ database:
 #   driver: "sqlite"
 #   dsn: "/var/lib/pkd-server-go/pkd.sqlite"
 
-sigsum:
-  url: "http://localhost:8081"
-  public_key: "" # Optional, if you want to verify the SigSum log's signature
-
 peers:
   "example-peer.com":
     public_key: "peer-public-key"
@@ -161,14 +157,6 @@ the `--force` flag to override this behavior:
 ```shell
 pkd-admin keygen --config /path/to/your/config.yaml --force
 ```
-
-### SigSum Integration
-
-To ensure the integrity and auditability of the key directory, this server integrates with a SigSum transparency log.
-All key-related events are published to the SigSum log, creating a verifiable and tamper-evident record.
-
-The `sigsum.url` configuration option specifies the URL of the SigSum server to use. This can be a local instance or a
-remote, trusted SigSum server.
 
 ### Administrative Actions
 

@@ -9,7 +9,7 @@ import (
 	"github.com/fedi-e2ee/pkd-server-go/internal/db"
 	"github.com/fedi-e2ee/pkd-server-go/internal/domain"
 	"github.com/fedi-e2ee/pkd-server-go/internal/protocol"
-	"github.com/fedi-e2ee/pkd-server-go/internal/sigsum"
+	"github.com/fedi-e2ee/pkd-server-go/internal/tlog"
 	"net/url"
 
 	"github.com/go-chi/chi/v5"
@@ -21,7 +21,7 @@ import (
 type RuntimeState struct {
 	Repo           db.Repository
 	Service        domain.Service
-	SigsumClient   sigsum.Client
+	TlogClient     tlog.Client
 	Logger         *log.Logger
 	HPKEPublicKey  interface{}
 	HPKEPrivateKey interface{}
@@ -30,12 +30,12 @@ type RuntimeState struct {
 }
 
 // Server holds the dependencies for the API handlers, including the database repository,
-// domain service, SigSum client, logger, and server-specific configurations. It also
+// domain service, Tlog client, logger, and server-specific configurations. It also
 // contains a map of protocol action handlers for routing protocol messages.
 type Server struct {
 	repo           db.Repository
 	service        domain.Service
-	sigsum         sigsum.Client
+	tlog           tlog.Client
 	logger         *log.Logger
 	hpkePrivateKey interface{}
 	hpkePublicKey  interface{}
@@ -65,7 +65,7 @@ func NewRouter(rs *RuntimeState) http.Handler {
 	s := &Server{
 		repo:           rs.Repo,
 		service:        rs.Service,
-		sigsum:         rs.SigsumClient,
+		tlog:           rs.TlogClient,
 		logger:         rs.Logger,
 		hpkePublicKey:  rs.HPKEPublicKey,
 		hpkePrivateKey: rs.HPKEPrivateKey,
