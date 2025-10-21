@@ -110,15 +110,6 @@ To set up a local development environment, you will need to have Go installed on
 
 ## Running Tests
 
-### SigSum Integration
-
-For tests involving the SigSum integration, a SigSum server must be running in the background. You can start a local
-SigSum server using the following command:
-
-```sh
-go run github.com/sigsum/sigsum-go/cmd/sigsum-log-server@v0.2.0 &
-```
-
 This project uses both unit tests and mutation tests to ensure code quality.
 
 ### Unit Tests

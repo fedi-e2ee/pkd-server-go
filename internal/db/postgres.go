@@ -104,6 +104,29 @@ func (r *PostgresRepository) SetFireproof(ctx context.Context, actorID string, i
 	return nil
 }
 
+// GetAllTlogEntries retrieves all entries from the transparency log.
+func (r *PostgresRepository) GetAllTlogEntries(ctx context.Context) ([]*domain.TlogEntry, error) {
+	var entries []*domain.TlogEntry
+	query := `SELECT id, merkle_root, signed_message, public_key_hash, created_at FROM tlog_entries ORDER BY id ASC`
+	err := r.db.SelectContext(ctx, &entries, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get all tlog entries: %w", err)
+	}
+	return entries, nil
+}
+
+// AddTlogEntry adds a new entry to the transparency log.
+func (r *PostgresRepository) AddTlogEntry(ctx context.Context, merkleRoot []byte, signedMessage []byte, publicKeyHash []byte) error {
+	query := `
+		INSERT INTO tlog_entries (merkle_root, signed_message, public_key_hash, created_at)
+		VALUES ($1, $2, $3, NOW())`
+	_, err := r.db.ExecContext(ctx, query, merkleRoot, signedMessage, publicKeyHash)
+	if err != nil {
+		return fmt.Errorf("failed to insert tlog entry: %w", err)
+	}
+	return nil
+}
+
 // GetLatestMerkleRoot retrieves the most recent merkle_root from the public_keys table.
 func (r *PostgresRepository) GetLatestMerkleRoot(ctx context.Context) (string, error) {
 	var merkleRoot string

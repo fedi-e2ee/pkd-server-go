@@ -15,7 +15,7 @@ import (
 	"github.com/fedi-e2ee/pkd-server-go/internal/config"
 	"github.com/fedi-e2ee/pkd-server-go/internal/domain"
 	"github.com/fedi-e2ee/pkd-server-go/internal/protocol"
-	"github.com/fedi-e2ee/pkd-server-go/internal/sigsum"
+	"github.com/fedi-e2ee/pkd-server-go/internal/tlog"
 	"github.com/gowebpki/jcs"
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
@@ -94,6 +94,19 @@ func (m *MockDBRepository) Ping(ctx context.Context) error {
 	args := m.Called(ctx)
 	return args.Error(0)
 }
+func (m *MockDBRepository) AddTlogEntry(ctx context.Context, merkleRoot []byte, signedMessage []byte, publicKeyHash []byte) error {
+	args := m.Called(ctx, merkleRoot, signedMessage, publicKeyHash)
+	return args.Error(0)
+}
+
+func (m *MockDBRepository) GetAllTlogEntries(ctx context.Context) ([]*domain.TlogEntry, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.TlogEntry), args.Error(1)
+}
+
 func (m *MockDBRepository) Close() error {
 	args := m.Called()
 	return args.Error(0)
@@ -134,15 +147,15 @@ func (m *MockService) ProcessRevokeAuxData(ctx context.Context, msg *protocol.Re
 }
 
 func TestProcessAddKeyAction_FirstKey(t *testing.T) {
-	// Create mock service and sigsum client
+	// Create mock service and tlog client
 	mockService := new(MockService)
-	mockSigsum := new(sigsum.MockClient)
+	mockTlog := new(tlog.MockClient)
 	mockRepo := new(MockDBRepository)
 
 	// Create a new server with the mock dependencies
 	server := &Server{
 		service: mockService,
-		sigsum:  mockSigsum,
+		tlog:    mockTlog,
 		repo:    mockRepo,
 	}
 
@@ -188,7 +201,7 @@ func TestProcessAddKeyAction_FirstKey(t *testing.T) {
 
 	// Set up mock expectations
 	mockRepo.On("ListKeysForActor", mock.Anything, "test-actor").Return([]*domain.PublicKey{}, nil).Once()
-	mockSigsum.On("SubmitMessage", mock.Anything, mock.Anything).Return("test-merkle-root", nil).Once()
+	mockTlog.On("SubmitMessage", mock.Anything, mock.Anything).Return("test-merkle-root", nil).Once()
 	mockService.On("ProcessAddKey", mock.Anything, &addKeyMsg, "test-merkle-root", map[string][]byte{"attr1": []byte("foo")}).Return(&domain.PublicKey{KeyID: "new-key-id", MerkleRoot: "test-merkle-root"}, nil).Once()
 
 	// Create a new HTTP request
@@ -208,7 +221,7 @@ func TestProcessAddKeyAction_FirstKey(t *testing.T) {
 	// Assert that the mock methods were called
 	mockRepo.AssertExpectations(t)
 	mockService.AssertExpectations(t)
-	mockSigsum.AssertExpectations(t)
+	mockTlog.AssertExpectations(t)
 }
 
 func TestProcessQueryAction(t *testing.T) {
@@ -276,8 +289,8 @@ func TestProcessCheckpointAction(t *testing.T) {
 
 func TestProcessFireproofAction(t *testing.T) {
 	mockRepo := new(MockDBRepository)
-	mockSigsum := new(sigsum.MockClient)
-	server := &Server{repo: mockRepo, sigsum: mockSigsum}
+	mockTlog := new(tlog.MockClient)
+	server := &Server{repo: mockRepo, tlog: mockTlog}
 
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
 	assert.NoError(t, err)
@@ -299,7 +312,7 @@ func TestProcessFireproofAction(t *testing.T) {
 	}
 
 	mockRepo.On("ListKeysForActor", mock.Anything, "test-actor").Return([]*domain.PublicKey{{PublicKey: pubKeyStr}}, nil).Once()
-	mockSigsum.On("SubmitMessage", mock.Anything, mock.Anything).Return("", nil).Once()
+	mockTlog.On("SubmitMessage", mock.Anything, mock.Anything).Return("", nil).Once()
 	mockRepo.On("SetFireproof", mock.Anything, "test-actor", true).Return(nil).Once()
 
 	req, _ := http.NewRequest("POST", "/protocol", nil)
@@ -308,13 +321,13 @@ func TestProcessFireproofAction(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 	mockRepo.AssertExpectations(t)
-	mockSigsum.AssertExpectations(t)
+	mockTlog.AssertExpectations(t)
 }
 
 func TestProcessUndoFireproofAction(t *testing.T) {
 	mockRepo := new(MockDBRepository)
-	mockSigsum := new(sigsum.MockClient)
-	server := &Server{repo: mockRepo, sigsum: mockSigsum}
+	mockTlog := new(tlog.MockClient)
+	server := &Server{repo: mockRepo, tlog: mockTlog}
 
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
 	assert.NoError(t, err)
@@ -336,7 +349,7 @@ func TestProcessUndoFireproofAction(t *testing.T) {
 	}
 
 	mockRepo.On("ListKeysForActor", mock.Anything, "test-actor").Return([]*domain.PublicKey{{PublicKey: pubKeyStr}}, nil).Once()
-	mockSigsum.On("SubmitMessage", mock.Anything, mock.Anything).Return("", nil).Once()
+	mockTlog.On("SubmitMessage", mock.Anything, mock.Anything).Return("", nil).Once()
 	mockRepo.On("SetFireproof", mock.Anything, "test-actor", false).Return(nil).Once()
 
 	req, _ := http.NewRequest("POST", "/protocol", nil)
@@ -345,14 +358,14 @@ func TestProcessUndoFireproofAction(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 	mockRepo.AssertExpectations(t)
-	mockSigsum.AssertExpectations(t)
+	mockTlog.AssertExpectations(t)
 }
 
 func TestProcessAddAuxDataAction(t *testing.T) {
 	mockService := new(MockService)
 	mockRepo := new(MockDBRepository)
-	mockSigsum := new(sigsum.MockClient)
-	server := &Server{service: mockService, repo: mockRepo, sigsum: mockSigsum}
+	mockTlog := new(tlog.MockClient)
+	server := &Server{service: mockService, repo: mockRepo, tlog: mockTlog}
 
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
 	assert.NoError(t, err)
@@ -374,7 +387,7 @@ func TestProcessAddAuxDataAction(t *testing.T) {
 	}
 
 	mockRepo.On("ListKeysForActor", mock.Anything, "test-actor").Return([]*domain.PublicKey{{PublicKey: pubKeyStr}}, nil).Once()
-	mockSigsum.On("SubmitMessage", mock.Anything, mock.Anything).Return("test-merkle-root", nil).Once()
+	mockTlog.On("SubmitMessage", mock.Anything, mock.Anything).Return("test-merkle-root", nil).Once()
 	mockService.On("ProcessAddAuxData", mock.Anything, &addAuxMsg, "test-merkle-root").Return(&domain.AuxiliaryData{AuxID: "new-aux-id"}, nil).Once()
 
 	req, _ := http.NewRequest("POST", "/protocol", nil)
@@ -384,14 +397,14 @@ func TestProcessAddAuxDataAction(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 	mockRepo.AssertExpectations(t)
 	mockService.AssertExpectations(t)
-	mockSigsum.AssertExpectations(t)
+	mockTlog.AssertExpectations(t)
 }
 
 func TestProcessRevokeAuxDataAction(t *testing.T) {
 	mockService := new(MockService)
 	mockRepo := new(MockDBRepository)
-	mockSigsum := new(sigsum.MockClient)
-	server := &Server{service: mockService, repo: mockRepo, sigsum: mockSigsum}
+	mockTlog := new(tlog.MockClient)
+	server := &Server{service: mockService, repo: mockRepo, tlog: mockTlog}
 
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
 	assert.NoError(t, err)
@@ -413,7 +426,7 @@ func TestProcessRevokeAuxDataAction(t *testing.T) {
 	}
 
 	mockRepo.On("ListKeysForActor", mock.Anything, "test-actor").Return([]*domain.PublicKey{{PublicKey: pubKeyStr}}, nil).Once()
-	mockSigsum.On("SubmitMessage", mock.Anything, mock.Anything).Return("test-merkle-root", nil).Once()
+	mockTlog.On("SubmitMessage", mock.Anything, mock.Anything).Return("test-merkle-root", nil).Once()
 	mockService.On("ProcessRevokeAuxData", mock.Anything, &revokeAuxMsg, "test-merkle-root").Return(nil).Once()
 
 	req, _ := http.NewRequest("POST", "/protocol", nil)
@@ -423,17 +436,17 @@ func TestProcessRevokeAuxDataAction(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 	mockRepo.AssertExpectations(t)
 	mockService.AssertExpectations(t)
-	mockSigsum.AssertExpectations(t)
+	mockTlog.AssertExpectations(t)
 }
 
 func TestProcessRevokeKeyAction(t *testing.T) {
 	mockService := new(MockService)
-	mockSigsum := new(sigsum.MockClient)
+	mockTlog := new(tlog.MockClient)
 	mockRepo := new(MockDBRepository)
 
 	server := &Server{
 		service: mockService,
-		sigsum:  mockSigsum,
+		tlog:    mockTlog,
 		repo:    mockRepo,
 	}
 
@@ -480,7 +493,7 @@ func TestProcessRevokeKeyAction(t *testing.T) {
 		{PublicKey: pubKeyStr2},
 	}
 	mockRepo.On("ListKeysForActor", mock.Anything, "test-actor").Return(existingKeys, nil).Once()
-	mockSigsum.On("SubmitMessage", mock.Anything, mock.Anything).Return("test-merkle-root", nil).Once()
+	mockTlog.On("SubmitMessage", mock.Anything, mock.Anything).Return("test-merkle-root", nil).Once()
 	mockService.On("ProcessRevokeKey", mock.Anything, &revokeMsg, "test-merkle-root", mock.Anything).Return(nil).Once()
 
 	req, err := http.NewRequest("POST", "/protocol", bytes.NewBuffer([]byte{}))
@@ -493,17 +506,17 @@ func TestProcessRevokeKeyAction(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 	mockRepo.AssertExpectations(t)
 	mockService.AssertExpectations(t)
-	mockSigsum.AssertExpectations(t)
+	mockTlog.AssertExpectations(t)
 }
 
 func TestProcessMoveIdentityAction(t *testing.T) {
 	mockService := new(MockService)
-	mockSigsum := new(sigsum.MockClient)
+	mockTlog := new(tlog.MockClient)
 	mockRepo := new(MockDBRepository)
 
 	server := &Server{
 		service: mockService,
-		sigsum:  mockSigsum,
+		tlog:    mockTlog,
 		repo:    mockRepo,
 	}
 
@@ -543,7 +556,7 @@ func TestProcessMoveIdentityAction(t *testing.T) {
 
 	existingKeys := []*domain.PublicKey{{PublicKey: pubKeyStr}}
 	mockRepo.On("ListKeysForActor", mock.Anything, "old-actor").Return(existingKeys, nil).Once()
-	mockSigsum.On("SubmitMessage", mock.Anything, mock.Anything).Return("test-merkle-root", nil).Once()
+	mockTlog.On("SubmitMessage", mock.Anything, mock.Anything).Return("test-merkle-root", nil).Once()
 	mockService.On("ProcessMoveIdentity", mock.Anything, &moveMsg, "test-merkle-root").Return(nil).Once()
 
 	req, err := http.NewRequest("POST", "/protocol", bytes.NewBuffer([]byte{}))
@@ -554,17 +567,17 @@ func TestProcessMoveIdentityAction(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 	mockRepo.AssertExpectations(t)
 	mockService.AssertExpectations(t)
-	mockSigsum.AssertExpectations(t)
+	mockTlog.AssertExpectations(t)
 }
 
 func TestProcessBurnDownAction(t *testing.T) {
 	mockService := new(MockService)
-	mockSigsum := new(sigsum.MockClient)
+	mockTlog := new(tlog.MockClient)
 	mockRepo := new(MockDBRepository)
 
 	server := &Server{
 		service: mockService,
-		sigsum:  mockSigsum,
+		tlog:    mockTlog,
 		repo:    mockRepo,
 	}
 
@@ -605,7 +618,7 @@ func TestProcessBurnDownAction(t *testing.T) {
 	operatorKeys := []*domain.PublicKey{{PublicKey: pubKeyStr}}
 	mockRepo.On("ListKeysForActor", mock.Anything, "test-operator").Return(operatorKeys, nil).Once()
 	mockRepo.On("GetTOTPSecret", mock.Anything, "test-operator").Return(nil, nil).Once()
-	mockSigsum.On("SubmitMessage", mock.Anything, mock.Anything).Return("test-merkle-root", nil).Once()
+	mockTlog.On("SubmitMessage", mock.Anything, mock.Anything).Return("test-merkle-root", nil).Once()
 	mockService.On("ProcessBurnDown", mock.Anything, "test-actor", "test-merkle-root").Return(nil).Once()
 
 	req, err := http.NewRequest("POST", "/protocol", bytes.NewBuffer([]byte{}))
@@ -616,5 +629,5 @@ func TestProcessBurnDownAction(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 	mockRepo.AssertExpectations(t)
 	mockService.AssertExpectations(t)
-	mockSigsum.AssertExpectations(t)
+	mockTlog.AssertExpectations(t)
 }

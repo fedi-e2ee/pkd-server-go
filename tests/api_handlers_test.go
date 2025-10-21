@@ -28,7 +28,7 @@ func TestHandleGetActorInfo(t *testing.T) {
 	runtimeState := &api.RuntimeState{
 		Repo:           mockRepo,
 		Service:        ti.Service,
-		SigsumClient:   ti.SigsumClient,
+		TlogClient:     ti.TlogClient,
 		Logger:         ti.Logger,
 		HPKEPublicKey:  ti.PubKey,
 		HPKEPrivateKey: nil,

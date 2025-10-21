@@ -1,15 +1,20 @@
-package tests
+// Package tlog provides the database-backed tlog client.
+package tlog
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
+	"testing"
 
 	"github.com/fedi-e2ee/pkd-server-go/internal/domain"
 	"github.com/fedi-e2ee/pkd-server-go/internal/protocol"
 	"github.com/jmoiron/sqlx"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
-// MockRepository is a mock implementation of the db.Repository interface.
+// MockRepository is a mock implementation of the db.Repository interface for tlog tests.
 type MockRepository struct {
 	mock.Mock
 }
@@ -20,6 +25,9 @@ func (m *MockRepository) DB() *sqlx.DB {
 
 func (m *MockRepository) BeginTx(ctx context.Context) (domain.TransactionalRepository, error) {
 	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).(domain.TransactionalRepository), args.Error(1)
 }
 
@@ -114,6 +122,11 @@ func (m *MockRepository) Ping(ctx context.Context) error {
 	return args.Error(0)
 }
 
+func (m *MockRepository) Close() error {
+	args := m.Called()
+	return args.Error(0)
+}
+
 func (m *MockRepository) AddTlogEntry(ctx context.Context, merkleRoot []byte, signedMessage []byte, publicKeyHash []byte) error {
 	args := m.Called(ctx, merkleRoot, signedMessage, publicKeyHash)
 	return args.Error(0)
@@ -127,7 +140,35 @@ func (m *MockRepository) GetAllTlogEntries(ctx context.Context) ([]*domain.TlogE
 	return args.Get(0).([]*domain.TlogEntry), args.Error(1)
 }
 
-func (m *MockRepository) Close() error {
-	args := m.Called()
-	return args.Error(0)
+func TestNewDBClient(t *testing.T) {
+	mockRepo := new(MockRepository)
+	ctx := context.Background()
+	pub, _, err := ed25519.GenerateKey(rand.Reader)
+	assert.NoError(t, err)
+
+	mockRepo.On("GetAllTlogEntries", ctx).Return([]*domain.TlogEntry{}, nil).Once()
+
+	_, err = NewDBClient(ctx, mockRepo, pub)
+	assert.NoError(t, err)
+
+	mockRepo.AssertExpectations(t)
+}
+
+func TestSubmitMessage(t *testing.T) {
+	mockRepo := new(MockRepository)
+	ctx := context.Background()
+	pub, _, err := ed25519.GenerateKey(rand.Reader)
+	assert.NoError(t, err)
+
+	mockRepo.On("GetAllTlogEntries", ctx).Return([]*domain.TlogEntry{}, nil).Once()
+	client, err := NewDBClient(ctx, mockRepo, pub)
+	assert.NoError(t, err)
+
+	message := []byte("test message")
+	mockRepo.On("AddTlogEntry", ctx, mock.Anything, message, mock.Anything).Return(nil).Once()
+
+	_, err = client.SubmitMessage(ctx, message)
+	assert.NoError(t, err)
+
+	mockRepo.AssertExpectations(t)
 }

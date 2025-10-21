@@ -25,16 +25,16 @@ import (
 	"github.com/cloudflare/circl/kem"
 	"github.com/fedi-e2ee/pkd-server-go/internal/api"
 	"github.com/fedi-e2ee/pkd-server-go/internal/auth"
-	"github.com/gowebpki/jcs"
 	"github.com/fedi-e2ee/pkd-server-go/internal/config"
 	"github.com/fedi-e2ee/pkd-server-go/internal/crypto"
 	"github.com/fedi-e2ee/pkd-server-go/internal/db"
 	"github.com/fedi-e2ee/pkd-server-go/internal/domain"
 	"github.com/fedi-e2ee/pkd-server-go/internal/protocol"
-	"github.com/fedi-e2ee/pkd-server-go/internal/sigsum"
+	"github.com/fedi-e2ee/pkd-server-go/internal/tlog"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/gowebpki/jcs"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq" // driver for CREATE DATABASE
 	"github.com/stretchr/testify/mock"
@@ -48,7 +48,7 @@ type TestInstance struct {
 	Server       *httptest.Server
 	Repo         db.Repository
 	Service      *domain.PKDService
-	SigsumClient *sigsum.MockClient
+	TlogClient   *tlog.MockClient
 	PubKey       kem.PublicKey
 	postgresDSN  string // Keep track of the DSN for teardown
 	dbName       string // Keep track of the db name for teardown
@@ -186,8 +186,8 @@ func NewTestInstance(t *testing.T) (*TestInstance, error) {
 	}
 
 	service := domain.NewPKDService(repo, nil)
-	sigsumClient := &sigsum.MockClient{}
-	sigsumClient.On("SubmitMessage", mock.Anything, mock.Anything).Return("merkle-root", nil)
+	tlogClient := &tlog.MockClient{}
+	tlogClient.On("SubmitMessage", mock.Anything, mock.Anything).Return("merkle-root", nil)
 	logger := log.New(os.Stdout, "TEST_PKD_SERVER ", log.LstdFlags|log.Lshortfile)
 
 	keyManager, err := auth.NewFileKeyManager(
@@ -203,7 +203,7 @@ func NewTestInstance(t *testing.T) (*TestInstance, error) {
 	runtimeState := &api.RuntimeState{
 		Repo:           repo,
 		Service:        service,
-		SigsumClient:   sigsumClient,
+		TlogClient:     tlogClient,
 		Logger:         logger,
 		HPKEPublicKey:  pk,
 		HPKEPrivateKey: sk,
@@ -227,7 +227,7 @@ func NewTestInstance(t *testing.T) (*TestInstance, error) {
 		Server:       server,
 		Repo:         repo,
 		Service:      service,
-		SigsumClient: sigsumClient,
+		TlogClient:   tlogClient,
 		PubKey:       pk,
 		postgresDSN:  dsn,
 		dbName:       dbName,

@@ -63,7 +63,7 @@ func (s *Server) processAddKeyAction(w http.ResponseWriter, r *http.Request, msg
 	}
 
 	// --- Processing ---
-	// Create the canonical message form for SigSum submission.
+	// Create the canonical message form for Tlog submission.
 	signedMsg := protocol.SignedMessage{
 		PKDContext:       msg.PKDContext,
 		Action:           msg.Action,
@@ -72,14 +72,14 @@ func (s *Server) processAddKeyAction(w http.ResponseWriter, r *http.Request, msg
 	}
 	signedMsgBytes, err := json.Marshal(signedMsg)
 	if err != nil {
-		s.respondWithError(w, http.StatusInternalServerError, "Failed to marshal message for SigSum")
+		s.respondWithError(w, http.StatusInternalServerError, "Failed to marshal message for Tlog")
 		return
 	}
 
-	// Submit to SigSum to be included in the transparency log.
-	merkleRoot, err := s.sigsum.SubmitMessage(ctx, signedMsgBytes)
+	// Submit to Tlog to be included in the transparency log.
+	merkleRoot, err := s.tlog.SubmitMessage(ctx, signedMsgBytes)
 	if err != nil {
-		s.respondWithError(w, http.StatusInternalServerError, "Failed to submit message to SigSum")
+		s.respondWithError(w, http.StatusInternalServerError, "Failed to submit message to Tlog")
 		return
 	}
 
@@ -161,7 +161,7 @@ func (s *Server) processRevokeKeyAction(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
-	// Submit to SigSum.
+	// Submit to Tlog.
 	signedMsg := protocol.SignedMessage{
 		PKDContext:       msg.PKDContext,
 		Action:           msg.Action,
@@ -170,12 +170,12 @@ func (s *Server) processRevokeKeyAction(w http.ResponseWriter, r *http.Request, 
 	}
 	signedMsgBytes, err := json.Marshal(signedMsg)
 	if err != nil {
-		s.respondWithError(w, http.StatusInternalServerError, "Failed to marshal message for SigSum")
+		s.respondWithError(w, http.StatusInternalServerError, "Failed to marshal message for Tlog")
 		return
 	}
-	merkleRoot, err := s.sigsum.SubmitMessage(ctx, signedMsgBytes)
+	merkleRoot, err := s.tlog.SubmitMessage(ctx, signedMsgBytes)
 	if err != nil {
-		s.respondWithError(w, http.StatusInternalServerError, "Failed to submit message to SigSum")
+		s.respondWithError(w, http.StatusInternalServerError, "Failed to submit message to Tlog")
 		return
 	}
 
@@ -239,7 +239,7 @@ func (s *Server) processMoveIdentityAction(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Submit to SigSum.
+	// Submit to Tlog.
 	signedMsg := protocol.SignedMessage{
 		PKDContext:       msg.PKDContext,
 		Action:           msg.Action,
@@ -248,12 +248,12 @@ func (s *Server) processMoveIdentityAction(w http.ResponseWriter, r *http.Reques
 	}
 	signedMsgBytes, err := json.Marshal(signedMsg)
 	if err != nil {
-		s.respondWithError(w, http.StatusInternalServerError, "Failed to marshal message for SigSum")
+		s.respondWithError(w, http.StatusInternalServerError, "Failed to marshal message for Tlog")
 		return
 	}
-	merkleRoot, err := s.sigsum.SubmitMessage(ctx, signedMsgBytes)
+	merkleRoot, err := s.tlog.SubmitMessage(ctx, signedMsgBytes)
 	if err != nil {
-		s.respondWithError(w, http.StatusInternalServerError, "Failed to submit message to SigSum")
+		s.respondWithError(w, http.StatusInternalServerError, "Failed to submit message to Tlog")
 		return
 	}
 
@@ -340,7 +340,7 @@ func (s *Server) processBurnDownAction(w http.ResponseWriter, r *http.Request, m
 	}
 	// If encryptedSecret is nil, we proceed without OTP validation, as per spec.
 
-	// Submit to SigSum.
+	// Submit to Tlog.
 	signedMsg := protocol.SignedMessage{
 		PKDContext:       msg.PKDContext,
 		Action:           msg.Action,
@@ -349,12 +349,12 @@ func (s *Server) processBurnDownAction(w http.ResponseWriter, r *http.Request, m
 	}
 	signedMsgBytes, err := json.Marshal(signedMsg)
 	if err != nil {
-		s.respondWithError(w, http.StatusInternalServerError, "Failed to marshal message for SigSum")
+		s.respondWithError(w, http.StatusInternalServerError, "Failed to marshal message for Tlog")
 		return
 	}
-	merkleRoot, err := s.sigsum.SubmitMessage(ctx, signedMsgBytes)
+	merkleRoot, err := s.tlog.SubmitMessage(ctx, signedMsgBytes)
 	if err != nil {
-		s.respondWithError(w, http.StatusInternalServerError, "Failed to submit message to SigSum")
+		s.respondWithError(w, http.StatusInternalServerError, "Failed to submit message to Tlog")
 		return
 	}
 
@@ -406,7 +406,7 @@ func (s *Server) processFireproofAction(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
-	// Submit to SigSum.
+	// Submit to Tlog.
 	signedMsg := protocol.SignedMessage{
 		PKDContext:       msg.PKDContext,
 		Action:           msg.Action,
@@ -415,11 +415,11 @@ func (s *Server) processFireproofAction(w http.ResponseWriter, r *http.Request, 
 	}
 	signedMsgBytes, err := json.Marshal(signedMsg)
 	if err != nil {
-		s.respondWithError(w, http.StatusInternalServerError, "Failed to marshal message for SigSum")
+		s.respondWithError(w, http.StatusInternalServerError, "Failed to marshal message for Tlog")
 		return
 	}
-	if _, err := s.sigsum.SubmitMessage(ctx, signedMsgBytes); err != nil {
-		s.respondWithError(w, http.StatusInternalServerError, "Failed to submit message to SigSum")
+	if _, err := s.tlog.SubmitMessage(ctx, signedMsgBytes); err != nil {
+		s.respondWithError(w, http.StatusInternalServerError, "Failed to submit message to Tlog")
 		return
 	}
 
@@ -471,7 +471,7 @@ func (s *Server) processUndoFireproofAction(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Submit to SigSum.
+	// Submit to Tlog.
 	signedMsg := protocol.SignedMessage{
 		PKDContext:       msg.PKDContext,
 		Action:           msg.Action,
@@ -480,11 +480,11 @@ func (s *Server) processUndoFireproofAction(w http.ResponseWriter, r *http.Reque
 	}
 	signedMsgBytes, err := json.Marshal(signedMsg)
 	if err != nil {
-		s.respondWithError(w, http.StatusInternalServerError, "Failed to marshal message for SigSum")
+		s.respondWithError(w, http.StatusInternalServerError, "Failed to marshal message for Tlog")
 		return
 	}
-	if _, err := s.sigsum.SubmitMessage(ctx, signedMsgBytes); err != nil {
-		s.respondWithError(w, http.StatusInternalServerError, "Failed to submit message to SigSum")
+	if _, err := s.tlog.SubmitMessage(ctx, signedMsgBytes); err != nil {
+		s.respondWithError(w, http.StatusInternalServerError, "Failed to submit message to Tlog")
 		return
 	}
 
@@ -536,7 +536,7 @@ func (s *Server) processAddAuxDataAction(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	// Submit to SigSum.
+	// Submit to Tlog.
 	signedMsg := protocol.SignedMessage{
 		PKDContext:       msg.PKDContext,
 		Action:           msg.Action,
@@ -545,12 +545,12 @@ func (s *Server) processAddAuxDataAction(w http.ResponseWriter, r *http.Request,
 	}
 	signedMsgBytes, err := json.Marshal(signedMsg)
 	if err != nil {
-		s.respondWithError(w, http.StatusInternalServerError, "Failed to marshal message for SigSum")
+		s.respondWithError(w, http.StatusInternalServerError, "Failed to marshal message for Tlog")
 		return
 	}
-	merkleRoot, err := s.sigsum.SubmitMessage(ctx, signedMsgBytes)
+	merkleRoot, err := s.tlog.SubmitMessage(ctx, signedMsgBytes)
 	if err != nil {
-		s.respondWithError(w, http.StatusInternalServerError, "Failed to submit message to SigSum")
+		s.respondWithError(w, http.StatusInternalServerError, "Failed to submit message to Tlog")
 		return
 	}
 
@@ -602,7 +602,7 @@ func (s *Server) processRevokeAuxDataAction(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Submit to SigSum.
+	// Submit to Tlog.
 	signedMsg := protocol.SignedMessage{
 		PKDContext:       msg.PKDContext,
 		Action:           msg.Action,
@@ -611,12 +611,12 @@ func (s *Server) processRevokeAuxDataAction(w http.ResponseWriter, r *http.Reque
 	}
 	signedMsgBytes, err := json.Marshal(signedMsg)
 	if err != nil {
-		s.respondWithError(w, http.StatusInternalServerError, "Failed to marshal message for SigSum")
+		s.respondWithError(w, http.StatusInternalServerError, "Failed to marshal message for Tlog")
 		return
 	}
-	merkleRoot, err := s.sigsum.SubmitMessage(ctx, signedMsgBytes)
+	merkleRoot, err := s.tlog.SubmitMessage(ctx, signedMsgBytes)
 	if err != nil {
-		s.respondWithError(w, http.StatusInternalServerError, "Failed to submit message to SigSum")
+		s.respondWithError(w, http.StatusInternalServerError, "Failed to submit message to Tlog")
 		return
 	}
 
@@ -677,7 +677,7 @@ func (s *Server) processCheckpointAction(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	// Unlike other messages, checkpoints are not submitted to SigSum in the same
+	// Unlike other messages, checkpoints are not submitted to Tlog in the same
 	// way, but are stored locally.
 	rawMsgBytes, err := json.Marshal(msg)
 	if err != nil {
